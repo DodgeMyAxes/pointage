@@ -2,14 +2,15 @@
  * Processus principal : reste dans la zone de notification, lit le journal Windows au lancement, au réveil
  * et à la demande, note les verrouillages de session, et sert la fenêtre.
  */
-import { readFileSync, writeFileSync } from 'node:fs'
+import { readFileSync, statSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
 import {
   BrowserWindow, Menu, Notification, Tray, app, dialog, ipcMain, nativeImage, nativeTheme, powerMonitor, shell,
 } from 'electron'
-import type { Etat, Reponse } from '../lib/api'
+import type { Etat, FichierImport, FormatExport, Reponse } from '../lib/api'
 import { calculerJour, departConseille, historique, solde, transitions } from '../lib/calcul'
-import { exporterCsv } from '../lib/csv'
+import { exporterCsv, exporterTxt } from '../lib/exports'
+import { analyserImport, appliquerImport } from '../lib/import'
 import { appliquerReglages, appliquerSaisie, donneesPremierLancement, normaliser, type Donnees, type ModifSaisie, type Reglages } from '../lib/donnees'
 import type { Nature } from '../lib/evenements'
 import { comparerVersions, versionDepuisNom, type EtatMaj } from '../lib/maj'
@@ -296,59 +297,47 @@ function enregistrerIpc(): void {
     definirAutostart(actif)
   }, actif ? 'Pointage se lancera à l’ouverture de session Windows.' : 'Lancement automatique désactivé.'))
 
-  ipcMain.handle('exporter-csv', async (): Promise<Reponse> => {
+  ipcMain.handle('exporter', async (_e, format: FormatExport): Promise<Reponse> => {
+    const modele = FORMATS_EXPORT[format]
+    if (!modele) return { ok: false, erreur: `Format d’export inconnu : « ${String(format)} ».` }
     const choix = await enregistrerSous({
-      title: 'Exporter les heures',
-      defaultPath: `pointage-${cleJour(Date.now())}.csv`,
-      filters: [{ name: 'CSV (Excel)', extensions: ['csv'] }],
+      title: `Exporter : ${modele.nom}`,
+      defaultPath: `${modele.prefixe}-${cleJour(Date.now())}.${modele.extension}`,
+      filters: [{ name: modele.nom, extensions: [modele.extension] }],
     })
     if (choix.canceled || !choix.filePath) return { ok: true, etat: etat() }
     const chemin = choix.filePath
     return modifier(() => {
-      writeFileSync(chemin, exporterCsv(historique(donnees, Date.now())), 'utf8')
-    }, `Heures exportées dans ${chemin}.`)
+      writeFileSync(chemin, modele.contenu(), 'utf8')
+    }, `${modele.nom} enregistré dans ${chemin}.`)
   })
 
-  ipcMain.handle('sauvegarder', async (): Promise<Reponse> => {
-    const choix = await enregistrerSous({
-      title: 'Sauvegarder les données',
-      defaultPath: `pointage-sauvegarde-${cleJour(Date.now())}.json`,
-      filters: [{ name: 'Sauvegarde Pointage', extensions: ['json'] }],
-    })
-    if (choix.canceled || !choix.filePath) return { ok: true, etat: etat() }
-    const chemin = choix.filePath
-    return modifier(() => {
-      writeFileSync(chemin, JSON.stringify(donnees, null, 1), 'utf8')
-    }, `Données sauvegardées dans ${chemin}.`)
-  })
-
-  ipcMain.handle('restaurer', async (): Promise<Reponse> => {
+  // Fichier à importer : un .json est une sauvegarde complète (restaurée ici, après confirmation) ; un .csv ou un
+  // .txt est renvoyé à la fenêtre, qui en montre l'aperçu avant d'importer.
+  ipcMain.handle('import-fichier', async (): Promise<FichierImport> => {
     const choix = await ouvrirFichier({
-      title: 'Restaurer une sauvegarde',
-      filters: [{ name: 'Sauvegarde Pointage', extensions: ['json'] }],
+      title: 'Importer des heures',
+      filters: [
+        { name: 'Heures (texte, CSV) ou sauvegarde (JSON)', extensions: ['txt', 'csv', 'json'] },
+        { name: 'Tous les fichiers', extensions: ['*'] },
+      ],
       properties: ['openFile'],
     })
     const chemin = choix.filePaths[0]
-    if (choix.canceled || !chemin) return { ok: true, etat: etat() }
-    let restaurees: Donnees
-    try {
-      restaurees = normaliser(JSON.parse(readFileSync(chemin, 'utf8')))
-    } catch {
-      return { ok: false, erreur: `Le fichier ${chemin} n’est pas une sauvegarde lisible.` }
-    }
-    const confirmation = await demander({
-      type: 'warning',
-      title: 'Restaurer une sauvegarde',
-      message: 'Remplacer toutes les données actuelles par cette sauvegarde ?',
-      detail: `${restaurees.evenements.length} événements et ${Object.keys(restaurees.saisies).length} jours corrigés. Les événements encore présents dans le journal Windows seront relus ensuite.`,
-      buttons: ['Restaurer', 'Annuler'],
-      defaultId: 1,
-      cancelId: 1,
-    })
-    if (confirmation.response !== 0) return { ok: true, etat: etat() }
-    const reponse = modifier(() => ({ ...restaurees, derniereLecture: undefined }), 'Sauvegarde restaurée.')
-    await lireJournal()
-    return reponse.ok ? { ...reponse, etat: etat() } : reponse
+    if (choix.canceled || !chemin) return { type: 'annule' }
+    const nom = chemin.split(/[\\/]/).pop()!
+    if (statSync(chemin).size > 5 * 1024 * 1024) return { type: 'erreur', erreur: `« ${nom} » est trop gros pour un fichier d’heures (5 Mo au plus).` }
+    const texte = readFileSync(chemin, 'utf8')
+    if (!/\.json$/i.test(nom)) return { type: 'texte', nom, texte }
+    const reponse = await restaurer(nom, texte)
+    return reponse.ok ? { type: 'restauration', reponse } : { type: 'erreur', erreur: reponse.erreur }
+  })
+
+  ipcMain.handle('importer-jours', (_e, texte: string): Reponse => {
+    const { jours } = analyserImport(texte)
+    if (!jours.length) return { ok: false, erreur: 'Aucun jour à importer.' }
+    const periode = jours.length > 1 ? ` (du ${dateFr(jours[0].cle)} au ${dateFr(jours.at(-1)!.cle)})` : ` (${dateFr(jours[0].cle)})`
+    return modifier(() => appliquerImport(donnees, jours), `${jours.length} jour${jours.length > 1 ? 's' : ''} importé${jours.length > 1 ? 's' : ''}${periode}.`)
   })
 
   ipcMain.handle('tester-notification', (): Reponse => {
@@ -431,4 +420,39 @@ function enregistrerIpc(): void {
   ipcMain.handle('ouvrir-dossier', async () => {
     await shell.openPath(app.getPath('userData'))
   })
+}
+
+// --- Export et import --------------------------------------------------------------------------------------
+
+const dateFr = (cle: string) => cle.split('-').reverse().join('/')
+
+const FORMATS_EXPORT: Record<FormatExport, { nom: string; extension: string; prefixe: string; contenu: () => string }> = {
+  csv: { nom: 'Tableau CSV (Excel)', extension: 'csv', prefixe: 'pointage', contenu: () => exporterCsv(historique(donnees, Date.now())) },
+  txt: { nom: 'Texte (une ligne par jour)', extension: 'txt', prefixe: 'pointage', contenu: () => exporterTxt(historique(donnees, Date.now())) },
+  json: { nom: 'Sauvegarde complète (JSON)', extension: 'json', prefixe: 'pointage-sauvegarde', contenu: () => JSON.stringify(donnees, null, 1) },
+}
+
+/** Restauration d'une sauvegarde complète : remplace toutes les données, après confirmation. */
+async function restaurer(nom: string, texte: string): Promise<Reponse> {
+  let restaurees: Donnees
+  try {
+    const brut: unknown = JSON.parse(texte)
+    if (typeof brut !== 'object' || brut === null || !('evenements' in brut || 'saisies' in brut)) throw new Error()
+    restaurees = normaliser(brut)
+  } catch {
+    return { ok: false, erreur: `« ${nom} » n’est pas une sauvegarde de Pointage lisible.` }
+  }
+  const confirmation = await demander({
+    type: 'warning',
+    title: 'Restaurer une sauvegarde',
+    message: 'Remplacer toutes les données actuelles par cette sauvegarde ?',
+    detail: `${restaurees.evenements.length} événements et ${Object.keys(restaurees.saisies).length} jours corrigés. Les événements encore présents dans le journal Windows seront relus ensuite.`,
+    buttons: ['Restaurer', 'Annuler'],
+    defaultId: 1,
+    cancelId: 1,
+  })
+  if (confirmation.response !== 0) return { ok: true, etat: etat() }
+  const reponse = modifier(() => ({ ...restaurees, derniereLecture: undefined }), 'Sauvegarde restaurée.')
+  await lireJournal()
+  return reponse.ok ? { ...reponse, etat: etat() } : reponse
 }

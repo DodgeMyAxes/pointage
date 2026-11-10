@@ -98,6 +98,78 @@ main { padding-top: 16px; padding-bottom: 32px; display: flex; flex-direction: c
 .bouton.principal { background: var(--accent); border-color: var(--accent); color: #fff; font-weight: 600; }
 .bouton.principal:hover { background: color-mix(in srgb, var(--accent) 85%, #000); }
 
+/* Menu d'export : par-dessus le contenu, sans agrandir la carte. */
+.menu-conteneur { position: relative; }
+.menu {
+  position: absolute;
+  top: calc(100% + 4px);
+  left: 0;
+  z-index: 30;
+  min-width: 340px;
+  display: flex;
+  flex-direction: column;
+  padding: 4px;
+  border: 1px solid var(--bord);
+  border-radius: 8px;
+  background: var(--carte);
+  box-shadow: 0 8px 24px rgb(0 0 0 / 22%);
+}
+.menu[hidden] { display: none; }
+.menu button {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  text-align: left;
+  border: 0;
+  border-radius: 6px;
+  background: none;
+  padding: 8px 10px;
+  cursor: pointer;
+}
+.menu button:hover, .menu button:focus-visible { background: var(--survol); }
+.menu button span { font-size: 12px; color: var(--discret); }
+
+/* Fenêtre d'import. */
+.voile { position: fixed; inset: 0; z-index: 40; background: rgb(0 0 0 / 45%); }
+.modale {
+  position: fixed;
+  z-index: 41;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  width: min(760px, calc(100vw - 32px));
+  max-height: calc(100vh - 48px);
+  overflow: auto;
+  padding: 18px 20px;
+  border: 1px solid var(--bord);
+  border-radius: 12px;
+  background: var(--carte);
+  box-shadow: 0 16px 48px rgb(0 0 0 / 35%);
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.modale .carte-tete { margin-bottom: 0; }
+.modale textarea {
+  width: 100%;
+  min-height: 180px;
+  resize: vertical;
+  padding: 8px 10px;
+  border: 1px solid var(--bord);
+  border-radius: 8px;
+  background: var(--fond);
+  font: 13px/1.5 "Cascadia Mono", Consolas, monospace;
+}
+.modale textarea:focus { outline: 2px solid var(--accent); outline-offset: -1px; }
+.modale .actions .espace { flex: 1; }
+#apercu-import { font-size: 13px; }
+#apercu-import p { margin: 0 0 4px; }
+#apercu-import .ok b { color: var(--positif); }
+#apercu-import .erreur { color: var(--negatif); }
+#apercu-import .attention { color: var(--attention); }
+.apercu-jours, .apercu-refus { margin: 0 0 8px; padding-left: 18px; }
+.apercu-jours b { display: inline-block; min-width: 82px; font-weight: 600; }
+
 /* Bandeau « nouvelle version disponible ». */
 .annonce {
   display: flex;

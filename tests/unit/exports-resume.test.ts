@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { calculerJour, calculerPeriode, transitions } from '../../src/lib/calcul'
-import { exporterCsv } from '../../src/lib/csv'
+import { exporterCsv } from '../../src/lib/exports'
 import { journeeVientDEtreFaite, resumeDuJour, texteNotification } from '../../src/lib/resume'
 import { a, donnees, ev, journeeType } from '../aides'
 

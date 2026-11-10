@@ -14,6 +14,25 @@ function cellule(valeur: string): string {
   return /[";\n\r]/.test(valeur) ? `"${valeur.replaceAll('"', '""')}"` : valeur
 }
 
+/**
+ * Export texte, une ligne par jour renseigné, relisible par l'import : « 02/11/2026 09:30 12:00 13:55 17:10 »,
+ * suivi du type s'il n'est pas celui par défaut et de la note.
+ */
+export function exporterTxt(jours: readonly Jour[]): string {
+  const lignes = ['# Pointage : date, arrivée, pause, reprise, départ, puis type et note éventuels']
+  for (const j of jours) {
+    if (j.statut === 'futur') continue
+    const morceaux = [j.cle.split('-').reverse().join('/')]
+    const heures = [j.arrivee, j.pause, j.reprise, j.depart]
+    if (heures.every(Boolean)) morceaux.push(...heures.map((m) => heureDe(m!.t)))
+    else if (j.arrivee && j.depart && !j.pause && !j.reprise) morceaux.push(heureDe(j.arrivee.t), heureDe(j.depart.t))
+    if (j.typeManuel) morceaux.push(LIBELLES_TYPES[j.type].toLowerCase())
+    if (j.note) morceaux.push(j.note.replace(/\s+/g, ' '))
+    if (morceaux.length > 1) lignes.push(morceaux.join(' '))
+  }
+  return `${lignes.join('\r\n')}\r\n`
+}
+
 /** Export pour Excel : séparateur « ; », BOM UTF-8 pour les accents. */
 export function exporterCsv(jours: readonly Jour[]): string {
   const lignes = [

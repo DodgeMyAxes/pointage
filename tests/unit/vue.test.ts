@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 import { describe, expect, it } from 'vitest'
 import type { Etat } from '../../src/lib/api'
-import { bandeauMaj, calculer, echapper, texteSoldeZero, vueAujourdhui, vueMaj, vueMois, vueReglages, vueSynthese, type Contexte } from '../../src/renderer/vue'
+import { bandeauMaj, calculer, echapper, texteSoldeZero, vueApercuImport, vueAujourdhui, vueMaj, vueMois, vueReglages, vueSynthese, type Contexte } from '../../src/renderer/vue'
 import { a, donnees, ev, journeeType } from '../aides'
 
 const LUNDI = '2026-11-09'
@@ -118,6 +118,33 @@ describe('solde à zéro', () => {
     expect(texteSoldeZero(j, { objectif: 0, soldeZero: a(MARDI, '09:00') }, maintenant)).toContain('déjà atteint')
     expect(texteSoldeZero(j, { objectif: 0, soldeZero: a('2026-11-11', '02:00') }, maintenant)).toBe('')
     expect(texteSoldeZero(j, { objectif: 0 }, maintenant)).toBe('')
+  })
+})
+
+describe('import', () => {
+  it('annonce les jours reconnus, ceux déjà corrigés et les lignes refusées', () => {
+    const texte = '02/11/2026 9:30 12:00 13:55 17:10\n03/11/2026 8:45 17:30\n31/02/2026 9:00 17:00\n04/11/2026 congé Pont'
+    const page = monter(vueApercuImport(texte, { '2026-11-03': { note: 'déjà là' } }))
+    expect(page.querySelector('.ok')!.textContent!.replace(/\s+/g, ' ').trim()).toBe(
+      '3 jours reconnus du lundi 2 novembre au mercredi 4 novembre. 1 avait déjà des corrections, remplacées pour les valeurs importées.',
+    )
+    expect([...page.querySelectorAll('.apercu-jours li')].map((l) => l.textContent)).toEqual([
+      'lun. 02/11 09:30 – 12:00 / 13:55 – 17:10',
+      'mar. 03/11 08:45 – 17:30, sans pause',
+      'mer. 04/11 Congé · « Pont »',
+    ])
+    expect(page.querySelector('.apercu-refus li')!.textContent).toBe('Ligne 3 : date invalide « 31/02/2026 » (attendu : JJ/MM/AAAA) — 31/02/2026 9:00 17:00')
+  })
+
+  it('invite à coller des lignes tant que le champ est vide', () => {
+    expect(monter(vueApercuImport('  ', {})).textContent).toContain('Collez vos lignes')
+  })
+
+  it('propose un seul bouton d’export, avec trois formats', () => {
+    const page = monter(vueReglages(contexte().etat))
+    expect([...page.querySelectorAll('[data-action="exporter"]')].map((b) => (b as HTMLElement).dataset.format)).toEqual(['csv', 'txt', 'json'])
+    expect((page.querySelector('.menu') as HTMLElement).hidden).toBe(true)
+    expect(page.querySelector('[data-action="importer"]')).not.toBeNull()
   })
 })
 

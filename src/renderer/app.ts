@@ -1,8 +1,9 @@
 /** Câblage de la fenêtre : état, rendu, actions de l'utilisateur. */
-import type { ApiPointage, Etat, Reponse } from '../lib/api'
+import type { ApiPointage, Etat, FormatExport, Reponse } from '../lib/api'
 import { LIBELLES_CHAMPS, LIBELLES_THEMES, LIBELLES_TYPES, type Champ, type Reglages, type Theme, type TypeJour } from '../lib/donnees'
 import { ajouterMois, cleJourneeDe, heureDe, lireDuree, lireHeure, nomJourLong } from '../lib/temps'
-import { bandeauMaj, calculer, capitaliser, vueAujourdhui, vueMois, vueReglages, vueSynthese, type Contexte } from './vue'
+import { analyserImport } from '../lib/import'
+import { bandeauMaj, calculer, capitaliser, vueApercuImport, vueAujourdhui, vueImport, vueMois, vueReglages, vueSynthese, type Contexte } from './vue'
 
 declare global {
   interface Window {
@@ -198,9 +199,65 @@ async function changerJours(): Promise<void> {
   await appliquer(api.reglages({ joursTravailles: jours }), `Jours travaillés : ${jours.length} par semaine.`)
 }
 
+// --- Export et import --------------------------------------------------------------------------------------
+
+function menuExport(ouvrir: boolean): void {
+  const menu = document.querySelector<HTMLElement>('.menu')
+  const bouton = document.querySelector<HTMLElement>('[data-action="menu-export"]')
+  if (!menu || !bouton || menu.hidden === !ouvrir) return
+  menu.hidden = !ouvrir
+  bouton.setAttribute('aria-expanded', String(ouvrir))
+  // Menu ouvert : pas de redessin qui le refermerait sous la souris.
+  edition = ouvrir
+  if (ouvrir) menu.querySelector<HTMLElement>('button')?.focus()
+  else if (rendreApresEdition) {
+    rendreApresEdition = false
+    rendre()
+  }
+}
+
+const champImport = () => document.querySelector<HTMLTextAreaElement>('#texte-import')
+
+function ouvrirImport(): void {
+  $('#modale').innerHTML = vueImport()
+  champImport()!.focus()
+}
+
+function fermerImport(): void {
+  $('#modale').replaceChildren()
+}
+
+/** Aperçu redessiné à chaque frappe, sans toucher au champ de texte. */
+function majApercuImport(): void {
+  const texte = champImport()?.value ?? ''
+  $('#apercu-import').innerHTML = vueApercuImport(texte, etat.donnees.saisies)
+  const n = analyserImport(texte).jours.length
+  const bouton = $<HTMLButtonElement>('[data-action="valider-import"]')
+  bouton.disabled = n === 0
+  bouton.textContent = n ? `Importer ${n} jour${n > 1 ? 's' : ''}` : 'Importer'
+}
+
+async function fichierImport(): Promise<void> {
+  const fichier = await api.choisirFichierImport()
+  if (fichier.type === 'erreur') toast(fichier.erreur, true)
+  else if (fichier.type === 'restauration') {
+    if (await appliquer(Promise.resolve(fichier.reponse))) fermerImport()
+  } else if (fichier.type === 'texte') {
+    champImport()!.value = fichier.texte
+    majApercuImport()
+    toast(`« ${fichier.nom} » chargé : vérifiez l’aperçu avant d’importer.`)
+  }
+}
+
+async function validerImport(): Promise<void> {
+  if (await appliquer(api.importerJours(champImport()?.value ?? ''))) fermerImport()
+}
+
 // --- Branchements ------------------------------------------------------------------------------------------
 
 document.addEventListener('click', (e) => {
+  // Un clic ailleurs referme le menu d'export.
+  if (!(e.target as HTMLElement).closest('.menu-conteneur')) menuExport(false)
   const cible = (e.target as HTMLElement).closest<HTMLElement>('[data-action], [data-vue]')
   if (!cible) return
   if (cible.dataset.vue) {
@@ -240,14 +297,24 @@ document.addEventListener('click', (e) => {
     case 'debut-tout':
       void appliquer(api.reglages({ dateDebut: '' }), 'Tous les jours connus sont comptés.')
       break
-    case 'exporter-csv':
-      void appliquer(api.exporterCsv())
+    case 'menu-export':
+      menuExport(cible.getAttribute('aria-expanded') !== 'true')
       break
-    case 'sauvegarder':
-      void appliquer(api.sauvegarder())
+    case 'exporter':
+      menuExport(false)
+      void appliquer(api.exporter(cible.dataset.format as FormatExport))
       break
-    case 'restaurer':
-      void appliquer(api.restaurer())
+    case 'importer':
+      ouvrirImport()
+      break
+    case 'fermer-import':
+      fermerImport()
+      break
+    case 'fichier-import':
+      void fichierImport()
+      break
+    case 'valider-import':
+      void validerImport()
       break
     case 'maj-rechercher':
       void appliquer(api.rechercherMaj())
@@ -303,7 +370,15 @@ document.addEventListener('focusout', (e) => {
     }
   }, 0)
 })
+document.addEventListener('input', (e) => {
+  if ((e.target as HTMLElement).id === 'texte-import') majApercuImport()
+})
+
 document.addEventListener('keydown', (e) => {
+  if (e.key === 'Escape') {
+    if ($('#modale').childElementCount) fermerImport()
+    menuExport(false)
+  }
   const cible = e.target as HTMLElement
   if (e.key === 'Enter' && cible instanceof HTMLInputElement && cible.matches('td.note input, [data-reglage]')) cible.blur()
 })

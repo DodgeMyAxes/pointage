@@ -4,8 +4,11 @@ import {
   avancement, bilan, calculerJour, calculerPeriode, departConseille, historique, solde, transitions,
   type Avancement, type Conseil, type Jour,
 } from '../lib/calcul'
-import { CHAMPS, LIBELLES_THEMES, LIBELLES_TYPES, THEMES, TYPES, type Champ } from '../lib/donnees'
+import {
+  CHAMPS, LIBELLES_CHAMPS, LIBELLES_THEMES, LIBELLES_TYPES, THEMES, TYPES, type Champ, type TypeJour,
+} from '../lib/donnees'
 import { LIBELLES_NATURES } from '../lib/evenements'
+import { analyserImport, type JourImporte } from '../lib/import'
 import { DEPOT, lignesNotes } from '../lib/maj'
 import {
   DEBUT_JOURNEE, ajouterJours, cleJourneeDe, ecrireHeure, formatDuree, heureDe, instant, joursDuMois, jourSemaine,
@@ -267,6 +270,66 @@ export function vueMois(c: Calculs, ctx: Contexte): string {
   </section>`
 }
 
+// --- Import ------------------------------------------------------------------------------------------------
+
+/** Fenêtre d'import, par-dessus le contenu. L'aperçu (#apercu-import) est redessiné seul pendant la frappe. */
+export function vueImport(): string {
+  return `<div class="voile" data-action="fermer-import"></div>
+  <div class="modale" role="dialog" aria-modal="true" aria-labelledby="titre-import">
+    <div class="carte-tete">
+      <h2 id="titre-import">Importer des heures</h2>
+      <button type="button" class="bouton-icone" data-action="fermer-import" title="Fermer" aria-label="Fermer">×</button>
+    </div>
+    <p class="aide">Une ligne par jour : la date, puis l’arrivée, la pause, la reprise et le départ (ou seulement l’arrivée et le départ).
+      Un type (congé, férié, récupération, demi-journée, absence…) et une note peuvent suivre.
+      Un tableau CSV avec une ligne d’en-tête (Date, Arrivée, Pause, Reprise, Départ, Type, Note) convient aussi.</p>
+    <textarea id="texte-import" rows="10" spellcheck="false" aria-label="Lignes à importer"
+      placeholder="02/11/2026 9:30 12:00 13:55 17:10&#10;03/11/2026 8:45 17:30&#10;04/11/2026 congé&#10;05/11/2026 8:30 12:15 13:30 16:50 Formation"></textarea>
+    <div id="apercu-import" aria-live="polite">${vueApercuImport('', {})}</div>
+    <div class="actions">
+      <button type="button" class="bouton" data-action="fichier-import">Ouvrir un fichier…</button>
+      <span class="espace"></span>
+      <button type="button" class="bouton" data-action="fermer-import">Annuler</button>
+      <button type="button" class="bouton principal" data-action="valider-import" disabled>Importer</button>
+    </div>
+  </div>`
+}
+
+/** « 09:30 – 12:00 / 13:55 – 17:10 · Congé · « note » » */
+function resumeModif(j: JourImporte): string {
+  const { arrivee, pause, reprise, depart, type, note } = j.modif
+  const morceaux: string[] = []
+  if (arrivee && depart) morceaux.push(pause ? `${arrivee} – ${pause} / ${reprise} – ${depart}` : `${arrivee} – ${depart}, sans pause`)
+  else for (const champ of CHAMPS) if (j.modif[champ]) morceaux.push(`${LIBELLES_CHAMPS[champ]} ${j.modif[champ]}`)
+  if (type) morceaux.push(LIBELLES_TYPES[type as TypeJour])
+  if (note) morceaux.push(`« ${note} »`)
+  return morceaux.join(' · ')
+}
+
+/** Aperçu : jours reconnus, jours déjà corrigés qui seront remplacés, lignes refusées et pourquoi. */
+export function vueApercuImport(texte: string, saisies: Etat['donnees']['saisies']): string {
+  if (!texte.trim()) return '<p class="discret">Collez vos lignes ci-dessus ou ouvrez un fichier : l’aperçu s’affiche ici.</p>'
+  const { jours, refus, format } = analyserImport(texte)
+  const remplaces = jours.filter((j) => saisies[j.cle]).length
+  const morceaux: string[] = []
+  if (jours.length) {
+    const periode = jours.length > 1 ? ` du ${nomJourLong(jours[0].cle)} au ${nomJourLong(jours.at(-1)!.cle)}` : ` : ${nomJourLong(jours[0].cle)}`
+    morceaux.push(`<p class="ok"><b>${jours.length} jour${jours.length > 1 ? 's' : ''} reconnu${jours.length > 1 ? 's' : ''}</b>${periode}${format === 'csv' ? ' (tableau CSV)' : ''}.
+      ${remplaces ? `<span class="attention">${remplaces} ${remplaces > 1 ? 'avaient' : 'avait'} déjà des corrections, remplacées pour les valeurs importées.</span>` : ''}</p>`)
+    const visibles = jours.slice(0, 8)
+    morceaux.push(`<ul class="apercu-jours">${visibles.map((j) => `<li><b>${nomJourCourt(j.cle)}</b> ${echapper(resumeModif(j))}</li>`).join('')}${
+      jours.length > visibles.length ? `<li class="discret">… et ${jours.length - visibles.length} autre${jours.length - visibles.length > 1 ? 's' : ''}</li>` : ''}</ul>`)
+  } else {
+    morceaux.push('<p class="erreur"><b>Aucun jour reconnu.</b></p>')
+  }
+  if (refus.length) {
+    morceaux.push(`<p class="erreur">${refus.length} ligne${refus.length > 1 ? 's' : ''} ignorée${refus.length > 1 ? 's' : ''} :</p>
+      <ul class="apercu-refus">${refus.slice(0, 8).map((r) => `<li><b>Ligne ${r.ligne}</b> : ${echapper(r.raison)} <span class="discret">— ${echapper(r.texte.slice(0, 60))}</span></li>`).join('')}${
+      refus.length > 8 ? `<li class="discret">… et ${refus.length - 8} autre${refus.length - 8 > 1 ? 's' : ''}</li>` : ''}</ul>`)
+  }
+  return morceaux.join('')
+}
+
 // --- Mises à jour ------------------------------------------------------------------------------------------
 
 const dateFr = (cle: string) => cle.split('-').reverse().join('/')
@@ -401,11 +464,18 @@ export function vueReglages(etat: Etat): string {
     <p>Toutes les données restent sur ce PC, dans <code>${echapper(etat.cheminDonnees)}</code>.
       ${etat.donnees.evenements.length} événements enregistrés${lecture ? `, journal Windows lu le ${nomJourLong(cleJourneeDe(lecture))} à ${heureDe(lecture)}` : ''}.</p>
     <div class="actions">
-      <button type="button" class="bouton" data-action="exporter-csv">Exporter en CSV (Excel)</button>
-      <button type="button" class="bouton" data-action="sauvegarder">Sauvegarder…</button>
-      <button type="button" class="bouton" data-action="restaurer">Restaurer…</button>
+      <div class="menu-conteneur">
+        <button type="button" class="bouton" data-action="menu-export" aria-haspopup="menu" aria-expanded="false">Exporter… <span aria-hidden="true">▾</span></button>
+        <div class="menu" role="menu" hidden>
+          <button type="button" role="menuitem" data-action="exporter" data-format="csv"><b>Tableau CSV</b><span>Pour Excel : heures, durées, écarts et notes</span></button>
+          <button type="button" role="menuitem" data-action="exporter" data-format="txt"><b>Texte</b><span>Une ligne par jour : 02/11/2026 09:30 12:00 13:55 17:10</span></button>
+          <button type="button" role="menuitem" data-action="exporter" data-format="json"><b>Sauvegarde complète (JSON)</b><span>Tout Pointage, pour le restaurer à l’identique</span></button>
+        </div>
+      </div>
+      <button type="button" class="bouton" data-action="importer">Importer…</button>
       <button type="button" class="bouton" data-action="ouvrir-dossier">Ouvrir le dossier</button>
     </div>
+    <p class="aide">L’import accepte un texte collé ou un fichier .txt ou .csv (heures de plusieurs jours d’un coup), ou une sauvegarde .json (qui remplace tout).</p>
   </section>
 
   <section class="carte reglages" aria-label="Fonctionnement">

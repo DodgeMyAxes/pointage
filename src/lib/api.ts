@@ -16,15 +16,24 @@ export interface Etat {
 
 export type Reponse = { ok: true; etat: Etat; message?: string } | { ok: false; erreur: string }
 
+export type FormatExport = 'csv' | 'txt' | 'json'
+
+/** Fichier choisi pour l'import : texte à prévisualiser, ou sauvegarde JSON déjà restaurée par le processus principal. */
+export type FichierImport =
+  | { type: 'annule' }
+  | { type: 'texte'; nom: string; texte: string }
+  | { type: 'restauration'; reponse: Reponse }
+  | { type: 'erreur'; erreur: string }
+
 export interface ApiPointage {
   etat(): Promise<Etat>
   relire(): Promise<Reponse>
   saisir(cle: string, modif: ModifSaisie): Promise<Reponse>
   reglages(modif: Partial<Reglages>): Promise<Reponse>
   autostart(actif: boolean): Promise<Reponse>
-  exporterCsv(): Promise<Reponse>
-  sauvegarder(): Promise<Reponse>
-  restaurer(): Promise<Reponse>
+  exporter(format: FormatExport): Promise<Reponse>
+  choisirFichierImport(): Promise<FichierImport>
+  importerJours(texte: string): Promise<Reponse>
   testerNotification(): Promise<Reponse>
   rechercherMaj(): Promise<Reponse>
   installerMaj(): Promise<Reponse>
