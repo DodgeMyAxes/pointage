@@ -1,6 +1,8 @@
 appId: fr.thomas.pointage
 productName: Pointage
 copyright: Thomas
+# Publication faite à la main (gh release create, voir CLAUDE.md) : electron-builder ne publie rien.
+publish: null
 directories:
   output: release
   buildResources: build
