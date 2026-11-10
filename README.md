@@ -6,7 +6,7 @@ Suivi des heures de travail sans rien saisir : Pointage lit dans le journal de W
 
 1. Copier `Pointage-Installation-0.1.0.exe` sur le PC (clé USB, OneDrive…), puis le lancer : l'installation se fait pour l'utilisateur, sans droits administrateur, et ouvre Pointage.
 2. Si Windows affiche « Windows a protégé votre ordinateur » (l'application n'est pas signée) : *Informations complémentaires* → *Exécuter quand même*.
-3. C'est tout : Pointage se lance désormais à chaque ouverture de session, discrètement dans la zone de notification (icône horloge, à côté de l'heure). Un clic l'ouvre ; fermer la fenêtre le laisse tourner.
+3. C'est tout : Pointage se lance désormais à chaque ouverture de session, discrètement dans la zone de notification (icône horloge, à côté de l'heure). Un clic l'ouvre ; fermer la fenêtre le laisse tourner. Le raccourci du menu Démarrer est créé par Pointage lui-même à son premier lancement (l'installateur n'en crée pas : cela échouait sur certains PC d'entreprise).
 
 Au premier lancement, l'historique encore présent dans le journal Windows (souvent plusieurs semaines) est repris et affiché, mais le solde ne compte qu'à partir du lundi de la semaine en cours. *Réglages → Tout compter* inclut aussi l'historique.
 

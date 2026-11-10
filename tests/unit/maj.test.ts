@@ -1,5 +1,24 @@
 import { describe, expect, it } from 'vitest'
-import { comparerVersions, lignesNotes, lireVersionPubliee, rechercheHebdoDue, versionDepuisNom } from '../../src/lib/maj'
+import {
+  comparerVersions, dossierInstallation, estCopieInstallee, lignesNotes, lireVersionPubliee, rechercheHebdoDue, versionDepuisNom,
+} from '../../src/lib/maj'
+
+describe('copie installée', () => {
+  const local = String.raw`C:\Users\moi\AppData\Local`
+  it('situe l’installation dans Programs\\pointage', () => {
+    expect(dossierInstallation(local)).toBe(String.raw`C:\Users\moi\AppData\Local\Programs\pointage`)
+    expect(dossierInstallation(`${local}\\`)).toBe(dossierInstallation(local))
+  })
+  it('reconnaît l’exécutable installé, sans tenir compte de la casse ni des barres obliques', () => {
+    expect(estCopieInstallee(String.raw`${local}\Programs\pointage\Pointage.exe`, local)).toBe(true)
+    expect(estCopieInstallee('c:/users/moi/appdata/local/programs/Pointage/Pointage.exe', local)).toBe(true)
+  })
+  it('écarte une copie de développement ou un dossier voisin', () => {
+    expect(estCopieInstallee(String.raw`C:\Users\moi\Documents\pointage\release\win-unpacked\Pointage.exe`, local)).toBe(false)
+    expect(estCopieInstallee(String.raw`${local}\Programs\pointage-ancien\Pointage.exe`, local)).toBe(false)
+    expect(estCopieInstallee(String.raw`${local}\Programs\pointage\Pointage.exe`, undefined)).toBe(false)
+  })
+})
 
 const le = (j: number, h: number, m = 0) => new Date(2026, 10, j, h, m).getTime() // novembre 2026 : lundi 9, lundi 16
 

@@ -61,10 +61,11 @@ export async function telecharger(installateur: Installateur, surProgression: (p
 }
 
 /**
- * Lance l'installateur en silence (`/S`) ; il remplace l'application, garde les données (dans %APPDATA%) et relance
- * Pointage (`--force-run`). L'application se ferme aussitôt pour libérer ses fichiers.
+ * Lance l'installateur en silence (`/S`) comme une mise à jour (`--updated`) ; il remplace l'application, garde les
+ * données (dans %APPDATA%) et relance Pointage (`--force-run`, qui reçoit alors `--updated`). L'application se ferme
+ * aussitôt pour libérer ses fichiers.
  */
 export function installer(chemin: string): void {
-  spawn(chemin, ['/S', '--force-run'], { detached: true, stdio: 'ignore', windowsHide: true }).unref()
+  spawn(chemin, ['/S', '--updated', '--force-run'], { detached: true, stdio: 'ignore', windowsHide: true }).unref()
   setTimeout(() => app.quit(), 300)
 }

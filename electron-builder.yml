@@ -19,4 +19,8 @@ nsis:
   perMachine: false
   shortcutName: Pointage
   runAfterFinish: true
+  # Aucun raccourci créé par l'installateur : sa création échouait sur un PC d'entreprise (« Erreur non spécifiée »
+  # sur Pointage.lnk) et arrêtait l'installation. Pointage installé crée lui-même son raccourci du menu Démarrer.
+  createStartMenuShortcut: false
+  createDesktopShortcut: false
   artifactName: Pointage-Installation-${version}.exe

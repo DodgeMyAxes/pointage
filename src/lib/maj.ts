@@ -33,6 +33,21 @@ export interface EtatMaj {
   verifieLe?: number
 }
 
+/** Dossier où l'installateur (par utilisateur, en un clic) place Pointage : %LOCALAPPDATA%\Programs\pointage. */
+export function dossierInstallation(localAppData: string): string {
+  return `${localAppData.replace(/[\\/]+$/, '')}\\Programs\\pointage`
+}
+
+/**
+ * Vrai si l'exécutable est la copie installée, et non une autre (copie de développement comme release\win-unpacked) :
+ * une mise à jour ne remplace que la copie installée.
+ */
+export function estCopieInstallee(exe: string, localAppData: string | undefined): boolean {
+  if (!localAppData) return false
+  const normaliser = (chemin: string) => chemin.replace(/\//g, '\\').toLowerCase()
+  return normaliser(exe).startsWith(`${normaliser(dossierInstallation(localAppData))}\\`)
+}
+
 /** Après un échec (réseau pas encore prêt au réveil…), la recherche automatique attend une heure avant de réessayer. */
 export const DELAI_NOUVEL_ESSAI_MAJ = 60 * 60_000
 

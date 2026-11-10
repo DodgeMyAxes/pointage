@@ -2,8 +2,8 @@
  * Processus principal : reste dans la zone de notification, lit le journal Windows au lancement, au réveil
  * et à la demande, note les verrouillages de session, et sert la fenêtre.
  */
-import { readFileSync, statSync, writeFileSync } from 'node:fs'
-import { join } from 'node:path'
+import { existsSync, readFileSync, statSync, writeFileSync } from 'node:fs'
+import { dirname, join } from 'node:path'
 import {
   BrowserWindow, Menu, Notification, Tray, app, dialog, ipcMain, nativeImage, nativeTheme, powerMonitor, shell,
 } from 'electron'
@@ -13,7 +13,9 @@ import { exporterCsv, exporterTxt } from '../lib/exports'
 import { analyserImport, appliquerImport } from '../lib/import'
 import { appliquerReglages, appliquerSaisie, donneesPremierLancement, normaliser, type Donnees, type ModifSaisie, type Reglages } from '../lib/donnees'
 import type { Nature } from '../lib/evenements'
-import { DELAI_NOUVEL_ESSAI_MAJ, comparerVersions, rechercheHebdoDue, versionDepuisNom, type EtatMaj } from '../lib/maj'
+import {
+  DELAI_NOUVEL_ESSAI_MAJ, comparerVersions, dossierInstallation, estCopieInstallee, rechercheHebdoDue, versionDepuisNom, type EtatMaj,
+} from '../lib/maj'
 import { journeeVientDEtreFaite, resumeDuJour, texteNotification } from '../lib/resume'
 import { ajouterEvenement, synchroniser } from '../lib/synchro'
 import { cleJour, cleJourneeDe } from '../lib/temps'
@@ -23,6 +25,8 @@ import { charger, enregistrer } from './stockage'
 
 /** Argument du lancement automatique : démarre caché dans la zone de notification. */
 const ARG_DEMARRAGE = '--demarrage'
+/** Identifiant Windows de l'application (notifications, raccourci) : le même que appId d'electron-builder.yml. */
+const ID_APPLICATION = 'fr.thomas.pointage'
 
 let donnees: Donnees
 let cheminDonnees = ''
@@ -58,7 +62,7 @@ if (!app.requestSingleInstanceLock()) app.quit()
 else demarrer()
 
 function demarrer(): void {
-  app.setAppUserModelId('fr.thomas.pointage')
+  app.setAppUserModelId(ID_APPLICATION)
   app.on('second-instance', () => ouvrirFenetre())
   // Fermer la fenêtre ne quitte pas : l'application reste dans la zone de notification.
   app.on('window-all-closed', () => {})
@@ -69,6 +73,7 @@ function demarrer(): void {
     donnees = chargement.nouveau ? donneesPremierLancement(Date.now()) : chargement.donnees
     appliquerTheme()
     if (chargement.nouveau && app.isPackaged) definirAutostart(true)
+    verifierRaccourci()
     enregistrerIpc()
     creerTray()
     surveillerSession()
@@ -124,6 +129,16 @@ async function rechercherMaj(automatique: boolean): Promise<void> {
 
 const REFUS_DEVELOPPEMENT = 'Version de développement : une mise à jour ne s’installe que depuis Pointage installé.'
 
+const copieInstallee = () => app.isPackaged && estCopieInstallee(process.execPath, process.env.LOCALAPPDATA)
+
+/** Une mise à jour ne s'installe que depuis la copie installée : ailleurs, elle irait à côté sans rien remplacer. */
+function refusInstallation(): string | undefined {
+  if (!app.isPackaged) return REFUS_DEVELOPPEMENT
+  if (copieInstallee()) return undefined
+  const dossier = process.env.LOCALAPPDATA ? dossierInstallation(process.env.LOCALAPPDATA) : String.raw`AppData\Local\Programs\pointage`
+  return `Cette copie de Pointage (${dirname(process.execPath)}) n’est pas la version installée : la mise à jour irait dans ${dossier} sans la remplacer. Ouvrez Pointage depuis le menu Démarrer.`
+}
+
 // --- Données -----------------------------------------------------------------------------------------------
 
 function sauver(): void {
@@ -174,6 +189,27 @@ function lireAutostart(): boolean {
 
 function definirAutostart(actif: boolean): void {
   app.setLoginItemSettings({ openAtLogin: actif, path: process.execPath, args: argumentsAutostart() })
+}
+
+/**
+ * Raccourci du menu Démarrer, créé ou réparé par Pointage installé : l'installateur n'en crée plus (sa création
+ * échouait sur un PC d'entreprise et arrêtait l'installation). Il porte l'identifiant des notifications, et
+ * l'installateur s'en sert pour relancer Pointage après une mise à jour : il doit viser la copie installée.
+ */
+function verifierRaccourci(): void {
+  if (!copieInstallee()) return
+  const lien = join(app.getPath('appData'), 'Microsoft', 'Windows', 'Start Menu', 'Programs', 'Pointage.lnk')
+  const voulu = {
+    target: process.execPath, cwd: dirname(process.execPath), icon: process.execPath, iconIndex: 0,
+    appUserModelId: ID_APPLICATION, description: 'Suivi des heures de travail',
+  }
+  try {
+    const actuel = existsSync(lien) ? shell.readShortcutLink(lien) : undefined
+    if (actuel && actuel.target.toLowerCase() === voulu.target.toLowerCase() && actuel.appUserModelId === ID_APPLICATION) return
+    shell.writeShortcutLink(lien, actuel ? 'replace' : 'create', voulu)
+  } catch {
+    // Raccourci impossible (stratégie de l'entreprise…) : Pointage fonctionne sans.
+  }
 }
 
 // --- Zone de notification ----------------------------------------------------------------------------------
@@ -381,7 +417,8 @@ function enregistrerIpc(): void {
   })
 
   ipcMain.handle('maj-installer', async (): Promise<Reponse> => {
-    if (!app.isPackaged) return { ok: false, erreur: REFUS_DEVELOPPEMENT }
+    const refus = refusInstallation()
+    if (refus) return { ok: false, erreur: refus }
     const publiee = maj.disponible
     if (!publiee) return { ok: false, erreur: 'Aucune nouvelle version à installer : lancez d’abord une recherche.' }
     try {
@@ -398,7 +435,8 @@ function enregistrerIpc(): void {
   })
 
   ipcMain.handle('maj-fichier', async (): Promise<Reponse> => {
-    if (!app.isPackaged) return { ok: false, erreur: REFUS_DEVELOPPEMENT }
+    const refus = refusInstallation()
+    if (refus) return { ok: false, erreur: refus }
     const choix = await ouvrirFichier({
       title: 'Installer une version de Pointage',
       filters: [{ name: 'Installateur Pointage', extensions: ['exe'] }],
