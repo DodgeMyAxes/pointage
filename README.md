@@ -23,8 +23,14 @@ Rien n'est perdu si Pointage était fermé : tout est relu dans le journal Windo
 
 - **Aujourd'hui** : heures du jour, temps fait, heure de départ conseillée pour faire 7h22 (et pour ramener le solde à zéro). Une notification prévient quand le temps du jour est atteint.
 - **Journal du mois** : cliquer une heure pour la corriger (en violet = corrigée à la main ; la croix ramène l'heure détectée). Le type de jour se change dans la liste : Travail, Récupération, Demi-journée, Congé, Férié, Absence, Repos. Les jours fériés français sont reconnus. Cliquer la date affiche les événements Windows du jour.
-- **Réglages** : durée quotidienne, jours travaillés, plage et durée de pause, solde reporté d'avant l'application, début du décompte, thème (comme Windows, clair ou sombre), lancement automatique, notification.
-- **Données** : stockées sur le PC (`%APPDATA%\Pointage\pointage.json`, avec une copie de secours). Export CSV pour Excel, sauvegarde et restauration.
+- **Réglages** : durée quotidienne, jours travaillés, plage et durée de pause, solde reporté d'avant l'application, début du décompte, thème (comme Windows, clair ou sombre), lancement automatique, notification (avec un bouton d'essai).
+- **Données** : stockées sur le PC (`%APPDATA%\Pointage\pointage.json`, avec une copie de secours).
+  - *Exporter…* : tableau CSV pour Excel, texte (une ligne par jour) ou sauvegarde complète JSON.
+  - *Importer…* : coller des lignes ou ouvrir un fichier, avec aperçu avant d'importer tout d'un coup. Une ligne par jour : `02/11/2026 9:30 12:00 13:55 17:10` (ou `03/11/2026 8:45 17:30` sans pause, ou `04/11/2026 congé Pont`). Un CSV avec une ligne d'en-tête (Date, Arrivée, Pause, Reprise, Départ, Type, Note) convient aussi. Un fichier `.json` restaure une sauvegarde complète.
+
+## Mises à jour
+
+*Réglages → Mises à jour* : *Rechercher une mise à jour* interroge GitHub (dépôt public `Arceus33/pointage`, le code seulement). Une nouvelle version s'installe en un clic : téléchargement vérifié, installation silencieuse, redémarrage, données conservées. La recherche se fait aussi toute seule au démarrage puis toutes les 6 heures, avec une notification quand une version sort. *Installer depuis un fichier…* installe un `Pointage-Installation-X.Y.Z.exe` reçu autrement (mail, clé USB) si github.com est bloqué.
 
 ## Développement
 
