@@ -1,0 +1,32 @@
+{
+  "name": "pointage",
+  "productName": "Pointage",
+  "version": "0.1.0",
+  "description": "Suivi des heures de travail à partir des allumages et mises en veille du PC",
+  "author": "Thomas",
+  "private": true,
+  "main": "dist/main.js",
+  "scripts": {
+    "build": "node scripts/build.mjs",
+    "start": "node scripts/build.mjs && electron .",
+    "icone": "node scripts/icone.mjs",
+    "dist": "node scripts/build.mjs --prod && electron-builder --win nsis",
+    "test": "vitest run",
+    "test:watch": "vitest"
+  },
+  "engines": {
+    "node": ">=26"
+  },
+  "devDependencies": {
+    "@types/node": "^26.6.6",
+    "electron": "^45.2.3",
+    "electron-builder": "^26.18.0",
+    "esbuild": "^0.28.2",
+    "jsdom": "^31.0.0",
+    "typescript": "^7.0.2",
+    "vitest": "^5.1.0"
+  },
+  "allowScripts": {
+    "esbuild@0.28.2": true
+  }
+}
