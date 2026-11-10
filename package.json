@@ -5,7 +5,7 @@
   "description": "Suivi des heures de travail à partir des allumages et mises en veille du PC",
   "author": "Thomas Ruiz",
   "private": true,
-  "repository": "github:Arceus33/pointage",
+  "repository": "github:DodgeMyAxes/pointage",
   "main": "dist/main.js",
   "scripts": {
     "build": "node scripts/build.mjs",

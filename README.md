@@ -33,7 +33,7 @@ Rien n'est perdu si Pointage était fermé : tout est relu dans le journal Windo
 
 ## Mises à jour
 
-*Réglages → Mises à jour* : *Rechercher une mise à jour* interroge GitHub (dépôt public `Arceus33/pointage`, le code seulement). Une nouvelle version s'installe en un clic : téléchargement vérifié, installation silencieuse, redémarrage, données conservées. La recherche se fait aussi toute seule une fois par semaine, au premier démarrage ou réveil du lundi (ou du premier jour où le PC sert dans la semaine), avec une notification quand une version sort. *Installer depuis un fichier…* installe un `Pointage-Installation-X.Y.Z.exe` reçu autrement (mail, clé USB) si github.com est bloqué.
+*Réglages → Mises à jour* : *Rechercher une mise à jour* interroge GitHub (dépôt public `DodgeMyAxes/pointage`, le code seulement). Une nouvelle version s'installe en un clic : téléchargement vérifié, installation silencieuse, redémarrage, données conservées. La recherche se fait aussi toute seule une fois par semaine, au premier démarrage ou réveil du lundi (ou du premier jour où le PC sert dans la semaine), avec une notification quand une version sort. *Installer depuis un fichier…* installe un `Pointage-Installation-X.Y.Z.exe` reçu autrement (mail, clé USB) si github.com est bloqué.
 
 ## Développement
 

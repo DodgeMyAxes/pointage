@@ -2,7 +2,7 @@
 
 import { cleJourneeDe, lundiDe } from './temps'
 
-export const DEPOT = 'Arceus33/pointage'
+export const DEPOT = 'DodgeMyAxes/pointage'
 export const URL_DERNIERE_VERSION = `https://api.github.com/repos/${DEPOT}/releases/latest`
 const MOTIF_INSTALLATEUR = /^Pointage-Installation-(\d+\.\d+\.\d+)\.exe$/i
 
