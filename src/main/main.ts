@@ -13,7 +13,7 @@ import { exporterCsv, exporterTxt } from '../lib/exports'
 import { analyserImport, appliquerImport } from '../lib/import'
 import { appliquerReglages, appliquerSaisie, donneesPremierLancement, normaliser, type Donnees, type ModifSaisie, type Reglages } from '../lib/donnees'
 import type { Nature } from '../lib/evenements'
-import { comparerVersions, versionDepuisNom, type EtatMaj } from '../lib/maj'
+import { DELAI_NOUVEL_ESSAI_MAJ, comparerVersions, rechercheHebdoDue, versionDepuisNom, type EtatMaj } from '../lib/maj'
 import { journeeVientDEtreFaite, resumeDuJour, texteNotification } from '../lib/resume'
 import { ajouterEvenement, synchroniser } from '../lib/synchro'
 import { cleJour, cleJourneeDe } from '../lib/temps'
@@ -35,7 +35,8 @@ let maj: EtatMaj = { statut: 'inconnu' }
 let versionNotifiee = ''
 /** Lancé par l'installateur juste après une mise à jour : la fenêtre l'annonce une fois. */
 let misAJour = process.argv.includes('--updated')
-const DELAI_RECHERCHE_MAJ = 6 * 60 * 60_000
+/** Dernière recherche automatique tentée (réussie ou non), pour espacer les nouveaux essais après un échec. */
+let derniereTentativeMaj = 0
 
 const icone = () => nativeImage.createFromPath(join(__dirname, 'assets', 'icone.ico'))
 
@@ -75,11 +76,9 @@ function demarrer(): void {
     if (chargement.avertissement) void dialog.showMessageBox({ type: 'warning', title: 'Pointage', message: chargement.avertissement })
     await lireJournal()
     setInterval(tic, 60_000)
-    // Recherche de mise à jour discrète, un peu après le démarrage puis toutes les 6 heures.
-    if (app.isPackaged) {
-      setTimeout(() => void rechercherMaj(true), 20_000)
-      setInterval(() => void rechercherMaj(true), DELAI_RECHERCHE_MAJ)
-    }
+    // Recherche de mise à jour discrète, une fois par semaine : un peu après le démarrage, puis à chaque minute
+    // si elle est due (Pointage reste ouvert pendant la veille : le réveil du lundi matin compte comme un démarrage).
+    if (app.isPackaged) setTimeout(rechercherMajSiDue, 20_000)
   })
 }
 
@@ -88,6 +87,16 @@ function demarrer(): void {
 function changerMaj(etatMaj: EtatMaj): void {
   maj = etatMaj
   fenetre?.webContents.send('maj')
+}
+
+/** Recherche automatique hebdomadaire, si elle est due et qu'aucun essai n'a échoué dans l'heure. */
+function rechercherMajSiDue(): void {
+  if (!app.isPackaged || !donnees.reglages.majAuto) return
+  const maintenant = Date.now()
+  if (!rechercheHebdoDue(donnees.derniereRechercheMaj, maintenant)) return
+  if (maintenant - derniereTentativeMaj < DELAI_NOUVEL_ESSAI_MAJ) return
+  derniereTentativeMaj = maintenant
+  void rechercherMaj(true)
 }
 
 /** Cherche une nouvelle version ; en mode automatique, ne fait rien si le réglage est coupé et prévient une seule fois par version. */
@@ -106,6 +115,8 @@ async function rechercherMaj(automatique: boolean): Promise<void> {
     } else {
       changerMaj({ statut: 'a-jour', verifieLe: Date.now() })
     }
+    donnees.derniereRechercheMaj = maj.verifieLe
+    sauver()
   } catch (e) {
     changerMaj({ ...maj, statut: 'erreur', erreur: e instanceof Error ? e.message : String(e) })
   }
@@ -188,6 +199,7 @@ function tic(): void {
   const jours = historique(donnees, maintenant, trans)
   const conseil = departConseille(jour, donnees.reglages, solde(donnees, jours), maintenant)
   tray?.setToolTip(resumeDuJour(jour, conseil))
+  rechercherMajSiDue()
   if (donnees.reglages.notifier && journeeVientDEtreFaite(jour) && derniereNotification !== jour.cle) {
     derniereNotification = jour.cle
     notifier(texteNotification(jour))

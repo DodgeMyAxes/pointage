@@ -385,7 +385,7 @@ export function vueMaj(etat: Etat): string {
       <button type="button" class="bouton" data-action="maj-rechercher"${desactive}>Rechercher une mise à jour</button>
       <button type="button" class="bouton" data-action="maj-fichier"${desactive}>Installer depuis un fichier…</button>
     </div>
-    <label class="case"><input type="checkbox" data-reglage="majAuto"${etat.donnees.reglages.majAuto ? ' checked' : ''}> Rechercher automatiquement au démarrage, puis toutes les 6 heures</label>
+    <label class="case"><input type="checkbox" data-reglage="majAuto"${etat.donnees.reglages.majAuto ? ' checked' : ''}> Rechercher automatiquement une fois par semaine (premier démarrage du lundi)</label>
     <p class="aide">Les versions sont publiées sur GitHub (${echapper(DEPOT)}). L’installation garde vos heures et réglages, puis Pointage redémarre tout seul.</p>
   </section>`
 }

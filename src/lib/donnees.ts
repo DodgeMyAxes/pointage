@@ -59,7 +59,7 @@ export interface Reglages {
   notifier: boolean
   /** Apparence : celle de Windows, ou forcée. */
   theme: Theme
-  /** Rechercher une nouvelle version au démarrage puis toutes les 6 heures. */
+  /** Rechercher une nouvelle version une fois par semaine, au premier démarrage du lundi (ou de la semaine). */
   majAuto: boolean
 }
 
@@ -75,6 +75,8 @@ export interface Donnees {
   reglages: Reglages
   /** Instant de la dernière lecture réussie du journal Windows. */
   derniereLecture?: number
+  /** Instant de la dernière recherche de mise à jour réussie (pour ne chercher qu'une fois par semaine). */
+  derniereRechercheMaj?: number
 }
 
 export const REGLAGES_PAR_DEFAUT: Readonly<Reglages> = Object.freeze({
@@ -173,6 +175,7 @@ export function normaliser(brut: unknown): Donnees {
   }
   if (estObjet(brut.reglages)) d.reglages = normaliserReglages(brut.reglages)
   if (typeof brut.derniereLecture === 'number' && Number.isFinite(brut.derniereLecture)) d.derniereLecture = brut.derniereLecture
+  if (typeof brut.derniereRechercheMaj === 'number' && Number.isFinite(brut.derniereRechercheMaj)) d.derniereRechercheMaj = brut.derniereRechercheMaj
   return d
 }
 

@@ -1,5 +1,7 @@
 /** Mises à jour : versions publiées sur GitHub (dépôt public, code seulement) ou installateur choisi à la main. */
 
+import { cleJourneeDe, lundiDe } from './temps'
+
 export const DEPOT = 'Arceus33/pointage'
 export const URL_DERNIERE_VERSION = `https://api.github.com/repos/${DEPOT}/releases/latest`
 const MOTIF_INSTALLATEUR = /^Pointage-Installation-(\d+\.\d+\.\d+)\.exe$/i
@@ -29,6 +31,18 @@ export interface EtatMaj {
   erreur?: string
   /** Instant de la dernière recherche réussie. */
   verifieLe?: number
+}
+
+/** Après un échec (réseau pas encore prêt au réveil…), la recherche automatique attend une heure avant de réessayer. */
+export const DELAI_NOUVEL_ESSAI_MAJ = 60 * 60_000
+
+/**
+ * Recherche automatique due : aucune recherche réussie depuis le début de la semaine (lundi 4 h, début de la
+ * journée de travail). Elle a donc lieu au premier démarrage ou réveil du lundi, ou du premier jour utilisé de la semaine.
+ */
+export function rechercheHebdoDue(derniere: number | undefined, maintenant: number): boolean {
+  if (derniere === undefined || derniere > maintenant) return true
+  return cleJourneeDe(derniere) < lundiDe(cleJourneeDe(maintenant))
 }
 
 /** Compare deux versions « X.Y.Z » : négatif si a < b, 0 si égales, positif si a > b. */

@@ -20,6 +20,7 @@ describe('normaliser', () => {
       },
       reglages: { objectif: 420, pauseDebut: '14:00', pauseFin: '12:00', notifier: false },
       derniereLecture: 123,
+      derniereRechercheMaj: 456,
     })
     expect(d.evenements).toEqual([{ t: 1, nature: 'ouverture' }, { t: 2, nature: 'veille' }])
     expect(d.saisies).toEqual({ '2026-11-09': { arrivee: '08:05', pause: '', type: 'conge', note: 'RDV' } })
@@ -27,6 +28,7 @@ describe('normaliser', () => {
     expect(d.reglages.pauseDebut).toBe(REGLAGES_PAR_DEFAUT.pauseDebut)
     expect(d.reglages.notifier).toBe(false)
     expect(d.derniereLecture).toBe(123)
+    expect(d.derniereRechercheMaj).toBe(456)
   })
 })
 

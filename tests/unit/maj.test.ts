@@ -1,5 +1,31 @@
 import { describe, expect, it } from 'vitest'
-import { comparerVersions, lignesNotes, lireVersionPubliee, versionDepuisNom } from '../../src/lib/maj'
+import { comparerVersions, lignesNotes, lireVersionPubliee, rechercheHebdoDue, versionDepuisNom } from '../../src/lib/maj'
+
+const le = (j: number, h: number, m = 0) => new Date(2026, 10, j, h, m).getTime() // novembre 2026 : lundi 9, lundi 16
+
+describe('recherche hebdomadaire', () => {
+  it('est due sans recherche connue', () => {
+    expect(rechercheHebdoDue(undefined, le(11, 9))).toBe(true)
+  })
+  it('n’a lieu qu’une fois dans la semaine', () => {
+    expect(rechercheHebdoDue(le(9, 8, 30), le(9, 14))).toBe(false)
+    expect(rechercheHebdoDue(le(9, 8, 30), le(13, 17))).toBe(false)
+    expect(rechercheHebdoDue(le(9, 8, 30), le(15, 23))).toBe(false)
+  })
+  it('redevient due au premier démarrage du lundi suivant', () => {
+    expect(rechercheHebdoDue(le(13, 17), le(16, 8))).toBe(true)
+  })
+  it('compte la nuit de dimanche à lundi avant 4 h dans la semaine finie', () => {
+    expect(rechercheHebdoDue(le(13, 17), le(16, 3, 30))).toBe(false)
+    expect(rechercheHebdoDue(le(16, 3, 30), le(16, 8))).toBe(true)
+  })
+  it('a lieu au premier jour utilisé si le lundi est chômé', () => {
+    expect(rechercheHebdoDue(le(6, 9), le(10, 8))).toBe(true)
+  })
+  it('se refait si la date enregistrée est dans le futur (horloge corrigée)', () => {
+    expect(rechercheHebdoDue(le(20, 9), le(11, 9))).toBe(true)
+  })
+})
 
 const release = (surcharge: Record<string, unknown> = {}) => ({
   tag_name: 'v0.2.0',
