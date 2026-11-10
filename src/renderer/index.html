@@ -1,0 +1,29 @@
+<!doctype html>
+<html lang="fr">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data:">
+    <title>Pointage</title>
+    <link rel="stylesheet" href="style.css">
+  </head>
+  <body>
+    <header class="barre">
+      <div class="conteneur barre-contenu">
+        <h1>Pointage</h1>
+        <nav aria-label="Vues">
+          <button type="button" data-vue="journal" class="actif">Journal</button>
+          <button type="button" data-vue="reglages">Réglages</button>
+        </nav>
+        <div class="lecture">
+          <span id="lecture" class="discret"></span>
+          <button type="button" class="bouton" data-action="relire" title="Relire le journal Windows maintenant">Relire</button>
+        </div>
+      </div>
+    </header>
+    <div id="bandeau" class="conteneur bandeau" role="alert" hidden></div>
+    <main id="contenu" class="conteneur"></main>
+    <div id="toasts" aria-live="polite"></div>
+    <script src="app.js"></script>
+  </body>
+</html>
