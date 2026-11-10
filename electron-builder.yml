@@ -14,9 +14,13 @@ win:
   target: nsis
   icon: build/icone.ico
 nsis:
-  # Installation pour l'utilisateur seul, sans droits administrateur, en un clic.
-  oneClick: true
+  # Installateur assisté : « pour tous les utilisateurs » (Program Files, droits administrateur demandés) ou « pour moi
+  # seulement » (AppData, sans droits). Un PC d'entreprise peut interdire les programmes dans AppData : Pointage.exe y
+  # est alors refusé (« Windows ne parvient pas à accéder au périphérique… »), d'où le choix, et celui du dossier.
+  oneClick: false
   perMachine: false
+  allowElevation: true
+  allowToChangeInstallationDirectory: true
   shortcutName: Pointage
   runAfterFinish: true
   # Aucun raccourci créé par l'installateur : sa création échouait sur un PC d'entreprise (« Erreur non spécifiée »

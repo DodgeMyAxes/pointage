@@ -38,14 +38,37 @@ export function dossierInstallation(localAppData: string): string {
   return `${localAppData.replace(/[\\/]+$/, '')}\\Programs\\pointage`
 }
 
+/** Désinstalleur posé par l'installateur à côté de Pointage.exe, pour une installation par utilisateur ou pour tous. */
+export const NOM_DESINSTALLEUR = 'Uninstall Pointage.exe'
+
 /**
- * Vrai si l'exécutable est la copie installée, et non une autre (copie de développement comme release\win-unpacked) :
- * une mise à jour ne remplace que la copie installée.
+ * Clé Windows de l'installation (« Applications installées »), tirée par electron-builder de appId
+ * (fr.thomas.pointage) : la même sur tous les PC.
  */
-export function estCopieInstallee(exe: string, localAppData: string | undefined): boolean {
-  if (!localAppData) return false
-  const normaliser = (chemin: string) => chemin.replace(/\//g, '\\').toLowerCase()
-  return normaliser(exe).startsWith(`${normaliser(dossierInstallation(localAppData))}\\`)
+export const CLE_INSTALLATION = '5f15d06e-da00-54b3-8169-c916b4b8b643'
+
+const normaliserChemin = (chemin: string) => chemin.replace(/\//g, '\\').replace(/\\+$/, '').toLowerCase()
+const dossierDe = (chemin: string) => chemin.replace(/[\\/][^\\/]*$/, '')
+
+/**
+ * Vrai si l'exécutable est une copie installée (désinstalleur à côté), dans AppData ou dans Program Files, et non
+ * une autre copie (développement, comme release\win-unpacked) : une mise à jour ne remplace que la copie installée.
+ */
+export function estCopieInstallee(exe: string, existe: (chemin: string) => boolean): boolean {
+  return existe(`${dossierDe(exe)}\\${NOM_DESINSTALLEUR}`)
+}
+
+/**
+ * Ancienne installation par utilisateur (AppData) à effacer quand Pointage tourne désormais depuis une autre
+ * installation (Program Files, pour un PC d'entreprise qui interdit les programmes dans AppData).
+ */
+export function ancienneInstallationAEffacer(
+  exe: string, localAppData: string | undefined, existe: (chemin: string) => boolean,
+): string | undefined {
+  if (!localAppData || !estCopieInstallee(exe, existe)) return undefined
+  const ancien = dossierInstallation(localAppData)
+  if (normaliserChemin(dossierDe(exe)) === normaliserChemin(ancien)) return undefined
+  return existe(`${ancien}\\${NOM_DESINSTALLEUR}`) ? ancien : undefined
 }
 
 /** Après un échec (réseau pas encore prêt au réveil…), la recherche automatique attend une heure avant de réessayer. */

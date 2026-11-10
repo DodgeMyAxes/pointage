@@ -2,7 +2,8 @@
  * Processus principal : reste dans la zone de notification, lit le journal Windows au lancement, au réveil
  * et à la demande, note les verrouillages de session, et sert la fenêtre.
  */
-import { existsSync, readFileSync, statSync, writeFileSync } from 'node:fs'
+import { execFile } from 'node:child_process'
+import { existsSync, readFileSync, rmSync, statSync, writeFileSync } from 'node:fs'
 import { dirname, join } from 'node:path'
 import {
   BrowserWindow, Menu, Notification, Tray, app, dialog, ipcMain, nativeImage, nativeTheme, powerMonitor, shell,
@@ -14,7 +15,9 @@ import { analyserImport, appliquerImport } from '../lib/import'
 import { appliquerReglages, appliquerSaisie, donneesPremierLancement, normaliser, type Donnees, type ModifSaisie, type Reglages } from '../lib/donnees'
 import type { Nature } from '../lib/evenements'
 import {
-  DELAI_NOUVEL_ESSAI_MAJ, comparerVersions, dossierInstallation, estCopieInstallee, rechercheHebdoDue, versionDepuisNom, type EtatMaj,
+  CLE_INSTALLATION, DELAI_NOUVEL_ESSAI_MAJ, ancienneInstallationAEffacer, comparerVersions, dossierInstallation, estCopieInstallee,
+  rechercheHebdoDue,
+  versionDepuisNom, type EtatMaj,
 } from '../lib/maj'
 import { journeeVientDEtreFaite, resumeDuJour, texteNotification } from '../lib/resume'
 import { ajouterEvenement, synchroniser } from '../lib/synchro'
@@ -74,6 +77,8 @@ function demarrer(): void {
     appliquerTheme()
     if (chargement.nouveau && app.isPackaged) definirAutostart(true)
     verifierRaccourci()
+    recalerAutostart()
+    effacerAncienneInstallation()
     enregistrerIpc()
     creerTray()
     surveillerSession()
@@ -129,14 +134,13 @@ async function rechercherMaj(automatique: boolean): Promise<void> {
 
 const REFUS_DEVELOPPEMENT = 'Version de développement : une mise à jour ne s’installe que depuis Pointage installé.'
 
-const copieInstallee = () => app.isPackaged && estCopieInstallee(process.execPath, process.env.LOCALAPPDATA)
+const copieInstallee = () => app.isPackaged && estCopieInstallee(process.execPath, existsSync)
 
 /** Une mise à jour ne s'installe que depuis la copie installée : ailleurs, elle irait à côté sans rien remplacer. */
 function refusInstallation(): string | undefined {
   if (!app.isPackaged) return REFUS_DEVELOPPEMENT
   if (copieInstallee()) return undefined
-  const dossier = process.env.LOCALAPPDATA ? dossierInstallation(process.env.LOCALAPPDATA) : String.raw`AppData\Local\Programs\pointage`
-  return `Cette copie de Pointage (${dirname(process.execPath)}) n’est pas la version installée : la mise à jour irait dans ${dossier} sans la remplacer. Ouvrez Pointage depuis le menu Démarrer.`
+  return `Cette copie de Pointage (${dirname(process.execPath)}) n’est pas une version installée : la mise à jour irait ailleurs sans la remplacer. Ouvrez Pointage depuis le menu Démarrer.`
 }
 
 // --- Données -----------------------------------------------------------------------------------------------
@@ -189,6 +193,33 @@ function lireAutostart(): boolean {
 
 function definirAutostart(actif: boolean): void {
   app.setLoginItemSettings({ openAtLogin: actif, path: process.execPath, args: argumentsAutostart() })
+}
+
+/** Installation déplacée (AppData → Program Files) : le lancement automatique visait l'ancien Pointage.exe. */
+function recalerAutostart(): void {
+  if (!copieInstallee() || !process.env.LOCALAPPDATA) return
+  // Electron ne voit une entrée de démarrage que pour le chemin qu'on lui donne : on interroge l'ancien.
+  const ancienExe = `${dossierInstallation(process.env.LOCALAPPDATA)}\\Pointage.exe`
+  if (ancienExe.toLowerCase() === process.execPath.toLowerCase()) return
+  if (app.getLoginItemSettings({ path: ancienExe, args: argumentsAutostart() }).openAtLogin) definirAutostart(true)
+}
+
+/**
+ * Pointage installé pour tous (Program Files) alors qu'une installation par utilisateur (AppData) reste, souvent
+ * bloquée par l'entreprise : on l'efface, avec son entrée dans « Applications installées ». Les données sont ailleurs.
+ */
+function effacerAncienneInstallation(): void {
+  if (!app.isPackaged) return
+  const ancien = ancienneInstallationAEffacer(process.execPath, process.env.LOCALAPPDATA, existsSync)
+  if (!ancien) return
+  try {
+    rmSync(ancien, { recursive: true, force: true })
+  } catch {
+    return // Fichiers occupés : nouvel essai au prochain lancement.
+  }
+  for (const cle of [`Software\\Microsoft\\Windows\\CurrentVersion\\Uninstall\\${CLE_INSTALLATION}`, `Software\\${CLE_INSTALLATION}`]) {
+    execFile('reg.exe', ['delete', `HKCU\\${cle}`, '/f'], { windowsHide: true }, () => {})
+  }
 }
 
 /**

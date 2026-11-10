@@ -1,22 +1,39 @@
 import { describe, expect, it } from 'vitest'
 import {
-  comparerVersions, dossierInstallation, estCopieInstallee, lignesNotes, lireVersionPubliee, rechercheHebdoDue, versionDepuisNom,
+  ancienneInstallationAEffacer, comparerVersions, dossierInstallation, estCopieInstallee, lignesNotes, lireVersionPubliee,
+  rechercheHebdoDue, versionDepuisNom,
 } from '../../src/lib/maj'
 
 describe('copie installée', () => {
   const local = String.raw`C:\Users\moi\AppData\Local`
-  it('situe l’installation dans Programs\\pointage', () => {
-    expect(dossierInstallation(local)).toBe(String.raw`C:\Users\moi\AppData\Local\Programs\pointage`)
-    expect(dossierInstallation(`${local}\\`)).toBe(dossierInstallation(local))
+  const parUtilisateur = String.raw`${local}\Programs\pointage`
+  const pourTous = String.raw`C:\Program Files\Pointage`
+  const developpement = String.raw`C:\Users\moi\Documents\pointage\release\win-unpacked`
+  /** Fichiers présents : un désinstalleur dans chacun des dossiers donnés. */
+  const avecDesinstalleur = (...dossiers: string[]) => (chemin: string) =>
+    dossiers.some((d) => chemin.toLowerCase() === `${d}\\Uninstall Pointage.exe`.toLowerCase())
+
+  it('situe l’installation par utilisateur dans Programs\\pointage', () => {
+    expect(dossierInstallation(local)).toBe(parUtilisateur)
+    expect(dossierInstallation(`${local}\\`)).toBe(parUtilisateur)
   })
-  it('reconnaît l’exécutable installé, sans tenir compte de la casse ni des barres obliques', () => {
-    expect(estCopieInstallee(String.raw`${local}\Programs\pointage\Pointage.exe`, local)).toBe(true)
-    expect(estCopieInstallee('c:/users/moi/appdata/local/programs/Pointage/Pointage.exe', local)).toBe(true)
+  it('reconnaît une copie installée à son désinstalleur, dans AppData comme dans Program Files', () => {
+    const existe = avecDesinstalleur(parUtilisateur, pourTous)
+    expect(estCopieInstallee(`${parUtilisateur}\\Pointage.exe`, existe)).toBe(true)
+    expect(estCopieInstallee(`${pourTous}\\Pointage.exe`, existe)).toBe(true)
+    expect(estCopieInstallee(`${developpement}\\Pointage.exe`, existe)).toBe(false)
   })
-  it('écarte une copie de développement ou un dossier voisin', () => {
-    expect(estCopieInstallee(String.raw`C:\Users\moi\Documents\pointage\release\win-unpacked\Pointage.exe`, local)).toBe(false)
-    expect(estCopieInstallee(String.raw`${local}\Programs\pointage-ancien\Pointage.exe`, local)).toBe(false)
-    expect(estCopieInstallee(String.raw`${local}\Programs\pointage\Pointage.exe`, undefined)).toBe(false)
+  it('efface l’installation par utilisateur quand Pointage tourne depuis Program Files', () => {
+    const exe = `${pourTous}\\Pointage.exe`
+    expect(ancienneInstallationAEffacer(exe, local, avecDesinstalleur(parUtilisateur, pourTous))).toBe(parUtilisateur)
+    expect(ancienneInstallationAEffacer(exe, local, avecDesinstalleur(pourTous))).toBeUndefined()
+    expect(ancienneInstallationAEffacer(exe, undefined, avecDesinstalleur(parUtilisateur, pourTous))).toBeUndefined()
+  })
+  it('n’efface rien depuis l’installation par utilisateur elle-même ni depuis une copie de développement', () => {
+    const existe = avecDesinstalleur(parUtilisateur, pourTous)
+    expect(ancienneInstallationAEffacer(`${parUtilisateur}\\Pointage.exe`, local, existe)).toBeUndefined()
+    expect(ancienneInstallationAEffacer('c:/users/moi/appdata/local/programs/pointage/Pointage.exe', local, existe)).toBeUndefined()
+    expect(ancienneInstallationAEffacer(`${developpement}\\Pointage.exe`, local, existe)).toBeUndefined()
   })
 })
 
