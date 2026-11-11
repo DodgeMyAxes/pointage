@@ -50,6 +50,58 @@ export const CLE_INSTALLATION = '5f15d06e-da00-54b3-8169-c916b4b8b643'
 const normaliserChemin = (chemin: string) => chemin.replace(/\//g, '\\').replace(/\\+$/, '').toLowerCase()
 const dossierDe = (chemin: string) => chemin.replace(/[\\/][^\\/]*$/, '')
 
+/** Fichier témoin posé à côté de Pointage.exe dans la version portable (zip). */
+export const TEMOIN_PORTABLE = 'portable.txt'
+
+/**
+ * Version portable : dossier `donnees` à côté de Pointage.exe quand le fichier témoin s'y trouve, sinon undefined.
+ * Une copie installée (désinstalleur à côté) n'est jamais portable, même si le témoin y a été copié.
+ */
+export function dossierPortable(exe: string, existe: (chemin: string) => boolean): string | undefined {
+  const dossier = dossierDe(exe)
+  if (estCopieInstallee(exe, existe) || !existe(`${dossier}\\${TEMOIN_PORTABLE}`)) return undefined
+  return `${dossier}\\donnees`
+}
+
+/** Variables d'environnement utiles pour juger l'emplacement de la version portable. */
+export interface EnvEmplacement {
+  TEMP?: string
+  TMP?: string
+  USERPROFILE?: string
+  OneDrive?: string
+  OneDriveCommercial?: string
+  OneDriveConsumer?: string
+}
+
+/**
+ * Emplacement de la version portable : `bloquant` quand Pointage est lancé depuis l'intérieur du zip (Windows l'a
+ * décompressé dans un dossier temporaire, les heures y seraient perdues) ; `avertissement` pour un dossier synchronisé
+ * par OneDrive (fichier verrouillé pendant la synchro, copies en conflit), Téléchargements (souvent vidé) ou réseau.
+ */
+export function jugerEmplacement(exe: string, env: EnvEmplacement): { bloquant?: string; avertissement?: string } {
+  const dossier = normaliserChemin(dossierDe(exe))
+  const sous = (parent?: string) => !!parent && (dossier + '\\').startsWith(normaliserChemin(parent) + '\\')
+  const conseil = 'Conseil : placez le dossier « Pointage » dans votre dossier personnel (tapez %USERPROFILE% dans la barre d’adresse de l’Explorateur), voir LISEZMOI.txt.'
+  if (sous(env.TEMP) || sous(env.TMP) || /\.zip\\|\\temp\d*_/i.test(dossier + '\\')) {
+    return { bloquant: `Pointage a été ouvert directement depuis le fichier zip : Windows l’a copié dans un dossier temporaire et vos heures y seraient perdues.\n\nFermez cette fenêtre, extrayez d’abord le dossier « Pointage » du zip, puis lancez Pointage.exe depuis ce dossier.\n\n${conseil}` }
+  }
+  if ([env.OneDrive, env.OneDriveCommercial, env.OneDriveConsumer].some(sous) || /\\onedrive( - [^\\]+)?\\/i.test(dossier + '\\')) {
+    return { avertissement: `Pointage est dans un dossier synchronisé par OneDrive (${dossierDe(exe)}). La synchronisation peut bloquer l’enregistrement de vos heures ou créer des copies en conflit.\n\n${conseil}` }
+  }
+  if (sous(env.USERPROFILE && `${env.USERPROFILE}\\Downloads`)) {
+    return { avertissement: `Pointage est dans le dossier Téléchargements, que Windows ou l’entreprise vident parfois : vos heures pourraient disparaître.\n\n${conseil}` }
+  }
+  if (dossier.startsWith('\\\\')) {
+    return { avertissement: `Pointage est sur un dossier réseau (${dossierDe(exe)}) : hors connexion, vos heures ne pourront pas être enregistrées.\n\n${conseil}` }
+  }
+  return {}
+}
+
+/** Page GitHub d'une version (la dernière si aucune n'est donnée), où télécharger le zip portable. */
+export function pageVersion(version?: string): string {
+  return version ? `https://github.com/${DEPOT}/releases/tag/v${version}` : `https://github.com/${DEPOT}/releases/latest`
+}
+
 /**
  * Vrai si l'exécutable est une copie installée (désinstalleur à côté), dans AppData ou dans Program Files, et non
  * une autre copie (développement, comme release\win-unpacked) : une mise à jour ne remplace que la copie installée.

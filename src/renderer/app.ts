@@ -325,6 +325,9 @@ document.addEventListener('click', (e) => {
     case 'maj-fichier':
       void appliquer(api.installerDepuisFichier())
       break
+    case 'maj-page':
+      void api.ouvrirPageMaj()
+      break
     case 'tester-notification':
       void appliquer(api.testerNotification())
       break

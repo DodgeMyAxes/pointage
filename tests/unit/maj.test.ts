@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import {
-  ancienneInstallationAEffacer, comparerVersions, dossierInstallation, estCopieInstallee, lignesNotes, lireVersionPubliee,
-  rechercheHebdoDue, versionDepuisNom,
+  ancienneInstallationAEffacer, comparerVersions, dossierInstallation, dossierPortable, estCopieInstallee, jugerEmplacement, lignesNotes, lireVersionPubliee,
+  pageVersion, rechercheHebdoDue, versionDepuisNom,
 } from '../../src/lib/maj'
 
 describe('copie installée', () => {
@@ -34,6 +34,53 @@ describe('copie installée', () => {
     expect(ancienneInstallationAEffacer(`${parUtilisateur}\\Pointage.exe`, local, existe)).toBeUndefined()
     expect(ancienneInstallationAEffacer('c:/users/moi/appdata/local/programs/pointage/Pointage.exe', local, existe)).toBeUndefined()
     expect(ancienneInstallationAEffacer(`${developpement}\\Pointage.exe`, local, existe)).toBeUndefined()
+  })
+})
+
+describe('version portable', () => {
+  const cle = String.raw`E:\Outils\Pointage`
+  const presents = (...chemins: string[]) => (chemin: string) => chemins.some((c) => c.toLowerCase() === chemin.toLowerCase())
+
+  it('écrit dans donnees à côté de Pointage.exe quand portable.txt est présent', () => {
+    expect(dossierPortable(`${cle}\\Pointage.exe`, presents(`${cle}\\portable.txt`))).toBe(`${cle}\\donnees`)
+  })
+  it('n’est pas portable sans le témoin', () => {
+    expect(dossierPortable(`${cle}\\Pointage.exe`, presents())).toBeUndefined()
+  })
+  it('n’est jamais portable dans une copie installée, même avec le témoin', () => {
+    const pf = String.raw`C:\Program Files\Pointage`
+    expect(dossierPortable(`${pf}\\Pointage.exe`, presents(`${pf}\\portable.txt`, `${pf}\\Uninstall Pointage.exe`))).toBeUndefined()
+  })
+  describe('emplacement', () => {
+    const env = {
+      TEMP: String.raw`C:\Users\moi\AppData\Local\Temp`,
+      USERPROFILE: String.raw`C:\Users\moi`,
+      OneDriveCommercial: String.raw`C:\Users\moi\OneDrive - Entreprise`,
+    }
+    const juger = (dossier: string) => jugerEmplacement(`${dossier}\\Pointage.exe`, env)
+
+    it('accepte le dossier personnel ou une clé USB', () => {
+      expect(juger(String.raw`C:\Users\moi\Pointage`)).toEqual({})
+      expect(juger(cle)).toEqual({})
+    })
+    it('refuse un lancement depuis l’intérieur du zip', () => {
+      expect(juger(String.raw`C:\Users\moi\AppData\Local\Temp\Temp1_Pointage-Portable-0.5.0.zip\Pointage`).bloquant).toContain('extrayez')
+      expect(jugerEmplacement(String.raw`D:\X\Pointage-Portable.zip\Pointage\Pointage.exe`, {}).bloquant).toBeDefined()
+    })
+    it('déconseille OneDrive, Téléchargements et le réseau', () => {
+      expect(juger(String.raw`C:\Users\moi\OneDrive - Entreprise\Bureau\Pointage`).avertissement).toContain('OneDrive')
+      expect(jugerEmplacement(String.raw`C:\Users\moi\OneDrive\Documents\Pointage\Pointage.exe`, {}).avertissement).toContain('OneDrive')
+      expect(juger(String.raw`C:\Users\moi\Downloads\Pointage-Portable-0.5.0\Pointage`).avertissement).toContain('Téléchargements')
+      expect(juger(String.raw`\\serveur\partage\Pointage`).avertissement).toContain('réseau')
+    })
+    it('ne confond pas un dossier au nom voisin', () => {
+      expect(juger(String.raw`C:\Users\moi\Downloads2\Pointage`)).toEqual({})
+    })
+  })
+
+  it('donne la page GitHub de la version, ou de la dernière', () => {
+    expect(pageVersion('0.5.0')).toBe('https://github.com/DodgeMyAxes/pointage/releases/tag/v0.5.0')
+    expect(pageVersion()).toBe('https://github.com/DodgeMyAxes/pointage/releases/latest')
   })
 })
 

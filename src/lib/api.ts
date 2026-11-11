@@ -10,6 +10,8 @@ export interface Etat {
   cheminDonnees: string
   /** Application installée (et non lancée depuis les sources). */
   installee: boolean
+  /** Version portable (zip) : données à côté de Pointage.exe, mises à jour à télécharger à la main. */
+  portable: boolean
   erreurLecture?: string
   maj: EtatMaj
 }
@@ -38,6 +40,8 @@ export interface ApiPointage {
   rechercherMaj(): Promise<Reponse>
   installerMaj(): Promise<Reponse>
   installerDepuisFichier(): Promise<Reponse>
+  /** Ouvre dans le navigateur la page GitHub de la version disponible (version portable). */
+  ouvrirPageMaj(): Promise<void>
   /** Version tout juste installée par une mise à jour (une seule fois), sinon null. */
   annonceMiseAJour(): Promise<string | null>
   ouvrirDossier(): Promise<void>

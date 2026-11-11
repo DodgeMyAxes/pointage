@@ -1,0 +1,119 @@
+POINTAGE {VERSION} - VERSION PORTABLE (SANS INSTALLATION)
+=========================================================
+
+Pointage calcule vos heures de travail (arrivée, pause, reprise, départ) à partir des allumages, mises en veille
+et verrouillages de votre PC. Aucun droit administrateur n'est nécessaire. Comptez 5 minutes.
+
+
+ÉTAPE 1 - DÉBLOQUER LE ZIP (facultatif mais conseillé)
+------------------------------------------------------
+1. Faites un clic droit sur le fichier Pointage-Portable-{VERSION}.zip, puis « Propriétés ».
+2. En bas de l'onglet « Général », si une case « Débloquer » existe, cochez-la. Sinon, passez à l'étape 2.
+3. Cliquez sur « OK ».
+
+
+ÉTAPE 2 - COPIER LE DOSSIER « POINTAGE » DANS VOTRE DOSSIER PERSONNEL
+--------------------------------------------------------------------
+Important : ne lancez pas Pointage.exe directement depuis le zip (Pointage vous arrêtera).
+Le dossier personnel est conseillé car il n'est ni synchronisé par OneDrive, ni vidé automatiquement,
+ni protégé contre l'écriture comme Documents ou le Bureau peuvent l'être.
+
+1. Double-cliquez sur le zip : il s'ouvre comme un dossier et contient un dossier « Pointage ».
+2. Faites un clic droit sur ce dossier « Pointage », puis « Copier ».
+3. Ouvrez une nouvelle fenêtre de l'Explorateur de fichiers (touches Windows + E).
+4. Cliquez dans la barre d'adresse en haut (là où le chemin est écrit), effacez tout,
+   tapez exactement   %USERPROFILE%   puis appuyez sur Entrée.
+   Vous arrivez dans le dossier à votre nom (C:\Users\VotreNom).
+5. Faites un clic droit dans un espace vide de ce dossier, puis « Coller ». Attendez la fin de la copie.
+
+
+ÉTAPE 3 - LANCER POINTAGE ET CRÉER UN RACCOURCI
+-----------------------------------------------
+1. Ouvrez le dossier « Pointage » que vous venez de coller et double-cliquez sur « Pointage.exe »
+   (l'icône d'horloge ; selon l'affichage, le nom peut apparaître sans « .exe »).
+2. La fenêtre de Pointage s'ouvre. C'est terminé !
+3. Pointage s'ajoute tout seul au menu Démarrer sous le nom « Pointage (portable) » :
+   les fois suivantes, appuyez sur la touche Windows, tapez « Pointage » et appuyez sur Entrée.
+4. Facultatif - raccourci sur le Bureau : clic droit sur Pointage.exe > « Afficher d'autres options »
+   (Windows 11) > « Envoyer vers » > « Bureau (créer un raccourci) ».
+
+
+ÉTAPE 4 - RÉGLAGES CONSEILLÉS
+-----------------------------
+Dans Pointage, onglet « Réglages » :
+- Cochez « Lancer Pointage à l'ouverture de session Windows » pour ne plus y penser.
+- Cliquez sur « Essayer » à côté de Notification : un message doit apparaître en bas à droite de l'écran.
+
+
+AU QUOTIDIEN
+------------
+- Fermer la fenêtre (croix) ne quitte pas Pointage : il reste près de l'horloge, en bas à droite.
+  Si son icône n'y est pas visible, cliquez sur la petite flèche « ^ » à côté de l'horloge.
+- Clic sur l'icône : ouvrir Pointage. Clic droit : Quitter.
+- Une heure fausse ? Cliquez dessus dans le journal pour la corriger.
+
+
+VOS DONNÉES
+-----------
+- Vos heures sont dans le sous-dossier « donnees » du dossier Pointage (fichier pointage.json).
+- Sauvegarde ou changement de PC : quittez Pointage, puis copiez le dossier « Pointage » entier
+  (sur une clé USB par exemple). Ou bien : Réglages > Données > Exporter... > Sauvegarde complète.
+- Ne supprimez pas le fichier « portable.txt » : il indique à Pointage de ranger vos heures dans « donnees ».
+
+
+METTRE À JOUR
+-------------
+1. Réglages > Mises à jour > « Rechercher une mise à jour ». Si une version existe,
+   cliquez sur « Télécharger la version ... » : la page de téléchargement s'ouvre dans le navigateur.
+   Téléchargez le fichier Pointage-Portable-X.Y.Z.zip.
+2. Quittez Pointage : clic droit sur son icône près de l'horloge > Quitter.
+3. Dans votre dossier personnel, renommez l'ancien dossier « Pointage » en « Pointage-ancien ».
+4. Refaites les étapes 1 et 2 avec le nouveau zip.
+5. Copiez le dossier « donnees » de « Pointage-ancien » dans le nouveau dossier « Pointage »
+   (s'il demande de remplacer des fichiers, acceptez).
+6. Lancez le nouveau Pointage.exe et vérifiez que vos heures sont là. Vous pouvez alors supprimer « Pointage-ancien ».
+
+
+EN CAS DE PROBLÈME
+------------------
+« Windows a protégé votre ordinateur » (fenêtre bleue)
+  Cliquez sur « Informations complémentaires », puis « Exécuter quand même ».
+  Si ce bouton n'existe pas, votre entreprise interdit les programmes non signés : voir le dernier cas.
+
+« Ce fichier ne s'ouvre pas » / message de sécurité au lancement de Pointage.exe
+  Décochez « Toujours demander avant d'ouvrir ce fichier » puis cliquez sur « Exécuter » ou « Ouvrir ».
+  Pour ne plus le voir : refaites l'étape 1 (Débloquer) avant de copier le dossier.
+
+« Pointage doit d'abord être extrait du zip »
+  Vous avez lancé Pointage depuis l'intérieur du zip : suivez l'étape 2.
+
+Pointage prévient que le dossier est dans OneDrive, Téléchargements ou sur le réseau
+  Pointage fonctionne, mais vos heures risquent de se perdre : quittez Pointage, puis déplacez le
+  dossier « Pointage » dans votre dossier personnel (étape 2, point 4). Lancez-le ensuite depuis ce nouvel
+  emplacement ; si le lancement automatique était coché, décochez-le puis recochez-le.
+
+Double-clic sur Pointage.exe : rien ne se passe
+  - Regardez près de l'horloge (petite flèche « ^ ») : Pointage tourne peut-être déjà.
+  - Patientez 10 secondes : le premier lancement peut être lent (analyse de l'antivirus).
+  - L'antivirus a pu mettre Pointage.exe en quarantaine : vérifiez qu'il est toujours dans le dossier.
+
+« Lecture du journal Windows impossible » dans Pointage
+  Votre PC limite l'accès au journal de Windows. Les verrouillages (Windows + L) restent notés tant que
+  Pointage tourne, et chaque heure peut être saisie à la main dans le journal.
+
+Pas de notification avec « Essayer »
+  Paramètres Windows > Système > Notifications : activez les notifications et « Pointage », et coupez
+  le mode « Ne pas déranger ». Lancez Pointage une fois depuis le menu Démarrer (« Pointage (portable) »).
+
+« Cette application a été bloquée par votre administrateur système » (ou par une stratégie de groupe)
+  Votre entreprise n'autorise que les logiciels qu'elle a approuvés. Aucune manipulation ne peut le
+  contourner : demandez à votre service informatique d'autoriser Pointage (logiciel gratuit, sans serveur,
+  données uniquement sur le PC, code public : https://github.com/DodgeMyAxes/pointage).
+
+
+DÉSINSTALLER
+------------
+Quittez Pointage, décochez au préalable « Lancer Pointage à l'ouverture de session Windows » dans les Réglages,
+puis supprimez le dossier « Pointage ». Pour retirer aussi « Pointage (portable) » du menu Démarrer :
+dans la barre d'adresse de l'Explorateur, tapez   %APPDATA%\Microsoft\Windows\Start Menu\Programs
+puis supprimez le raccourci « Pointage (portable) ».

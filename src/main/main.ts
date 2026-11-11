@@ -3,7 +3,7 @@
  * et à la demande, note les verrouillages de session, et sert la fenêtre.
  */
 import { execFile } from 'node:child_process'
-import { existsSync, readFileSync, rmSync, statSync, writeFileSync } from 'node:fs'
+import { accessSync, constants, existsSync, mkdirSync, readFileSync, rmSync, statSync, writeFileSync } from 'node:fs'
 import { dirname, join } from 'node:path'
 import {
   BrowserWindow, Menu, Notification, Tray, app, dialog, ipcMain, nativeImage, nativeTheme, powerMonitor, shell,
@@ -15,8 +15,8 @@ import { analyserImport, appliquerImport } from '../lib/import'
 import { appliquerReglages, appliquerSaisie, donneesPremierLancement, normaliser, type Donnees, type ModifSaisie, type Reglages } from '../lib/donnees'
 import type { Nature } from '../lib/evenements'
 import {
-  CLE_INSTALLATION, DELAI_NOUVEL_ESSAI_MAJ, ancienneInstallationAEffacer, comparerVersions, dossierInstallation, estCopieInstallee,
-  rechercheHebdoDue,
+  CLE_INSTALLATION, DELAI_NOUVEL_ESSAI_MAJ, ancienneInstallationAEffacer, comparerVersions, dossierInstallation, dossierPortable, jugerEmplacement,
+  estCopieInstallee, pageVersion, rechercheHebdoDue,
   versionDepuisNom, type EtatMaj,
 } from '../lib/maj'
 import { journeeVientDEtreFaite, resumeDuJour, texteNotification } from '../lib/resume'
@@ -49,6 +49,31 @@ const icone = () => nativeImage.createFromPath(join(__dirname, 'assets', 'icone.
 
 // Développement : dossier de données séparé (POINTAGE_DOSSIER) et capture de la fenêtre puis sortie (POINTAGE_CAPTURE).
 if (process.env.POINTAGE_DOSSIER) app.setPath('userData', process.env.POINTAGE_DOSSIER)
+/** Version portable (zip) : tout est écrit dans `donnees` à côté de Pointage.exe, rien dans AppData. */
+let portable = false
+/** Dossier `donnees` de la version portable impossible à créer ou à écrire : annoncé à l'ouverture. */
+let avertissementPortable: string | undefined
+/** Version portable lancée depuis l'intérieur du zip (dossier temporaire) : expliqué puis fermé, rien n'est écrit. */
+let refusPortable: string | undefined
+/** Emplacement déconseillé (OneDrive, Téléchargements, réseau) : prévenu au premier lancement. */
+let emplacementDeconseille: string | undefined
+if (app.isPackaged && !process.env.POINTAGE_DOSSIER) {
+  const dossier = dossierPortable(process.execPath, existsSync)
+  const emplacement = dossier ? jugerEmplacement(process.execPath, process.env) : {}
+  refusPortable = emplacement.bloquant
+  emplacementDeconseille = emplacement.avertissement
+  if (dossier && !refusPortable) {
+    try {
+      mkdirSync(dossier, { recursive: true })
+      accessSync(dossier, constants.W_OK)
+      app.setPath('userData', dossier)
+      app.setPath('sessionData', join(dossier, 'cache'))
+      portable = true
+    } catch {
+      avertissementPortable = `Version portable : le dossier « ${dossier} » n’est pas modifiable (clé USB protégée, dossier en lecture seule…). Vos heures sont enregistrées dans ${app.getPath('userData')}.`
+    }
+  }
+}
 const capture = process.env.POINTAGE_CAPTURE
 const themeForce = process.env.POINTAGE_THEME === 'light' || process.env.POINTAGE_THEME === 'dark' ? process.env.POINTAGE_THEME : undefined
 
@@ -61,7 +86,14 @@ function appliquerTheme(): void {
 
 const couleurFond = () => (nativeTheme.shouldUseDarkColors ? '#15171c' : '#f5f6f8')
 
-if (!app.requestSingleInstanceLock()) app.quit()
+// Lancé depuis le zip : expliqué avant le verrou d'instance unique (sinon une copie installée déjà ouverte le capterait
+// et rien ne s'afficherait).
+if (refusPortable) {
+  void app.whenReady().then(() => {
+    dialog.showMessageBoxSync({ type: 'error', title: 'Pointage', message: 'Pointage doit d’abord être extrait du zip', detail: refusPortable })
+    app.exit(0)
+  })
+} else if (!app.requestSingleInstanceLock()) app.quit()
 else demarrer()
 
 function demarrer(): void {
@@ -75,7 +107,8 @@ function demarrer(): void {
     const chargement = charger(cheminDonnees)
     donnees = chargement.nouveau ? donneesPremierLancement(Date.now()) : chargement.donnees
     appliquerTheme()
-    if (chargement.nouveau && app.isPackaged) definirAutostart(true)
+    // Version portable : pas d'inscription au démarrage de Windows d'office (bascule dans les Réglages).
+    if (chargement.nouveau && app.isPackaged && !portable) definirAutostart(true)
     verifierRaccourci()
     recalerAutostart()
     effacerAncienneInstallation()
@@ -83,7 +116,9 @@ function demarrer(): void {
     creerTray()
     surveillerSession()
     if (!process.argv.includes(ARG_DEMARRAGE)) ouvrirFenetre()
-    if (chargement.avertissement) void dialog.showMessageBox({ type: 'warning', title: 'Pointage', message: chargement.avertissement })
+    for (const message of [avertissementPortable, chargement.nouveau ? emplacementDeconseille : undefined, chargement.avertissement]) {
+      if (message) void dialog.showMessageBox({ type: 'warning', title: 'Pointage', message })
+    }
     await lireJournal()
     setInterval(tic, 60_000)
     // Recherche de mise à jour discrète, une fois par semaine : un peu après le démarrage, puis à chaque minute
@@ -120,7 +155,8 @@ async function rechercherMaj(automatique: boolean): Promise<void> {
       changerMaj({ statut: 'disponible', disponible: publiee, verifieLe: Date.now() })
       if (automatique && versionNotifiee !== publiee.version) {
         versionNotifiee = publiee.version
-        notifier({ titre: 'Mise à jour disponible', corps: `Pointage ${publiee.version} est disponible. Cliquez pour l’installer depuis les Réglages.` })
+        const suite = portable ? 'la télécharger depuis les Réglages' : 'l’installer depuis les Réglages'
+        notifier({ titre: 'Mise à jour disponible', corps: `Pointage ${publiee.version} est disponible. Cliquez pour ${suite}.` })
       }
     } else {
       changerMaj({ statut: 'a-jour', verifieLe: Date.now() })
@@ -140,6 +176,7 @@ const copieInstallee = () => app.isPackaged && estCopieInstallee(process.execPat
 function refusInstallation(): string | undefined {
   if (!app.isPackaged) return REFUS_DEVELOPPEMENT
   if (copieInstallee()) return undefined
+  if (portable) return 'Version portable : téléchargez le zip de la nouvelle version (bouton Télécharger) et suivez LISEZMOI.txt.'
   return `Cette copie de Pointage (${dirname(process.execPath)}) n’est pas une version installée : la mise à jour irait ailleurs sans la remplacer. Ouvrez Pointage depuis le menu Démarrer.`
 }
 
@@ -226,10 +263,13 @@ function effacerAncienneInstallation(): void {
  * Raccourci du menu Démarrer, créé ou réparé par Pointage installé : l'installateur n'en crée plus (sa création
  * échouait sur un PC d'entreprise et arrêtait l'installation). Il porte l'identifiant des notifications, et
  * l'installateur s'en sert pour relancer Pointage après une mise à jour : il doit viser la copie installée.
+ * Version portable : raccourci à part, « Pointage (portable) », sans lequel Windows n'affiche pas ses notifications ;
+ * recalé à chaque lancement si le dossier a été déplacé.
  */
 function verifierRaccourci(): void {
-  if (!copieInstallee()) return
-  const lien = join(app.getPath('appData'), 'Microsoft', 'Windows', 'Start Menu', 'Programs', 'Pointage.lnk')
+  if (!copieInstallee() && !portable) return
+  const nom = portable ? 'Pointage (portable).lnk' : 'Pointage.lnk'
+  const lien = join(app.getPath('appData'), 'Microsoft', 'Windows', 'Start Menu', 'Programs', nom)
   const voulu = {
     target: process.execPath, cwd: dirname(process.execPath), icon: process.execPath, iconIndex: 0,
     appUserModelId: ID_APPLICATION, description: 'Suivi des heures de travail',
@@ -334,6 +374,7 @@ function etat(): Etat {
     version: app.getVersion(),
     cheminDonnees,
     installee: app.isPackaged,
+    portable,
     erreurLecture,
     maj,
   }
@@ -496,6 +537,10 @@ function enregistrerIpc(): void {
     changerMaj({ ...maj, statut: 'installation' })
     installer(chemin)
     return { ok: true, etat: etat(), message: `Installation de Pointage ${version} : l’application redémarre dans un instant.` }
+  })
+
+  ipcMain.handle('maj-page', async () => {
+    await shell.openExternal(pageVersion(maj.disponible?.version))
   })
 
   ipcMain.handle('ouvrir-dossier', async () => {

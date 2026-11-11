@@ -9,7 +9,7 @@ const MARDI = '2026-11-10'
 
 function contexte(d = donnees(), maintenant = a(MARDI, '10:00')): Contexte {
   const etat: Etat = {
-    donnees: d, autostart: true, version: '0.1.0', cheminDonnees: 'C:\\données\\pointage.json', installee: true,
+    donnees: d, autostart: true, version: '0.1.0', cheminDonnees: 'C:\\données\\pointage.json', installee: true, portable: false,
     maj: { statut: 'inconnu' },
   }
   return { etat, maintenant, mois: '2026-11', ouverts: new Set() }
@@ -180,6 +180,39 @@ describe('mises à jour', () => {
     const { etat } = contexte()
     etat.maj = { statut: 'erreur', erreur: 'GitHub injoignable.' }
     expect(monter(vueMaj(etat)).querySelector('.maj-statut.erreur')!.textContent).toBe('GitHub injoignable.')
+  })
+})
+
+describe('mises à jour, version portable', () => {
+  const disponible = {
+    version: '0.5.0', notes: '', date: '2026-11-12',
+    installateur: { nom: 'Pointage-Installation-0.5.0.exe', url: 'https://exemple', taille: 1 },
+  }
+
+  it('propose de télécharger la nouvelle version au lieu de l’installer', () => {
+    const { etat } = contexte()
+    etat.portable = true
+    etat.maj = { statut: 'disponible', disponible }
+    const page = monter(vueMaj(etat))
+    expect(page.querySelector('[data-action="maj-page"]')!.textContent).toBe('Télécharger la version 0.5.0')
+    expect(page.querySelector('[data-action="maj-installer"]')).toBeNull()
+    expect(page.querySelector('[data-action="maj-fichier"]')).toBeNull()
+    expect(page.querySelector('.carte-tete')!.textContent).toContain('Version portable : 0.1.0')
+    expect(page.querySelector('.aide')!.textContent).toContain('LISEZMOI.txt')
+  })
+
+  it('garde l’installation dans la version installée', () => {
+    const { etat } = contexte()
+    etat.maj = { statut: 'disponible', disponible }
+    const page = monter(vueMaj(etat))
+    expect(page.querySelector('[data-action="maj-page"]')).toBeNull()
+    expect(page.querySelector('[data-action="maj-fichier"]')).not.toBeNull()
+  })
+
+  it('rappelle de recocher le démarrage après un déplacement du dossier', () => {
+    const { etat } = contexte()
+    etat.portable = true
+    expect(monter(vueReglages(etat)).textContent).toContain('si vous déplacez son dossier, cochez de nouveau cette case')
   })
 })
 

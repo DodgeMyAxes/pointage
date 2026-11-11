@@ -377,16 +377,22 @@ export function vueMaj(etat: Etat): string {
     : ''
   const desactive = occupe ? ' disabled' : ''
   return `<section class="carte reglages" aria-label="Mises à jour">
-    <div class="carte-tete"><h2>Mises à jour</h2><span class="discret">Version installée : ${echapper(etat.version)}</span></div>
+    <div class="carte-tete"><h2>Mises à jour</h2><span class="discret">Version ${etat.portable ? 'portable' : 'installée'} : ${echapper(etat.version)}</span></div>
     ${statut}
     ${nouveautes}
     <div class="actions">
-      ${v && maj.statut === 'disponible' ? `<button type="button" class="bouton principal" data-action="maj-installer">Installer la version ${echapper(v.version)}</button>` : ''}
+      ${v && maj.statut === 'disponible'
+        ? etat.portable
+          ? `<button type="button" class="bouton principal" data-action="maj-page">Télécharger la version ${echapper(v.version)}</button>`
+          : `<button type="button" class="bouton principal" data-action="maj-installer">Installer la version ${echapper(v.version)}</button>`
+        : ''}
       <button type="button" class="bouton" data-action="maj-rechercher"${desactive}>Rechercher une mise à jour</button>
-      <button type="button" class="bouton" data-action="maj-fichier"${desactive}>Installer depuis un fichier…</button>
+      ${etat.portable ? '' : `<button type="button" class="bouton" data-action="maj-fichier"${desactive}>Installer depuis un fichier…</button>`}
     </div>
     <label class="case"><input type="checkbox" data-reglage="majAuto"${etat.donnees.reglages.majAuto ? ' checked' : ''}> Rechercher automatiquement une fois par semaine (premier démarrage du lundi)</label>
-    <p class="aide">Les versions sont publiées sur GitHub (${echapper(DEPOT)}). L’installation garde vos heures et réglages, puis Pointage redémarre tout seul.</p>
+    <p class="aide">${etat.portable
+      ? `Version portable : les versions sont publiées sur GitHub (${echapper(DEPOT)}). Téléchargez Pointage-Portable-X.Y.Z.zip, quittez Pointage, décompressez le zip puis copiez-y votre dossier « donnees » (voir LISEZMOI.txt).`
+      : `Les versions sont publiées sur GitHub (${echapper(DEPOT)}). L’installation garde vos heures et réglages, puis Pointage redémarre tout seul.`}</p>
   </section>`
 }
 
@@ -446,7 +452,7 @@ export function vueReglages(etat: Etat): string {
 
       <span class="etiquette-champ">Démarrage</span>
       <label class="case"><input type="checkbox" data-action="autostart"${etat.autostart ? ' checked' : ''}> Lancer Pointage à l’ouverture de session Windows</label>
-      <p class="aide">${etat.installee ? 'Pointage démarre alors discrètement dans la zone de notification.' : 'Version de développement : préférez l’activer depuis la version installée.'}</p>
+      <p class="aide">${etat.portable ? 'Pointage démarre alors discrètement dans la zone de notification. Version portable : si vous déplacez son dossier, cochez de nouveau cette case.' : etat.installee ? 'Pointage démarre alors discrètement dans la zone de notification.' : 'Version de développement : préférez l’activer depuis la version installée.'}</p>
 
       <span class="etiquette-champ">Notification</span>
       <div class="ligne-champs">

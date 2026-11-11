@@ -14,6 +14,7 @@ const api: ApiPointage = {
   rechercherMaj: () => ipcRenderer.invoke('maj-rechercher'),
   installerMaj: () => ipcRenderer.invoke('maj-installer'),
   installerDepuisFichier: () => ipcRenderer.invoke('maj-fichier'),
+  ouvrirPageMaj: () => ipcRenderer.invoke('maj-page'),
   annonceMiseAJour: () => ipcRenderer.invoke('annonce-mise-a-jour'),
   ouvrirDossier: () => ipcRenderer.invoke('ouvrir-dossier'),
   surMaj: (rappel) => {
