@@ -31,3 +31,30 @@ Application Windows (Electron) de suivi des heures de travail : arrivée, pause 
 - Captures : PowerShell 5.1 lit les fichiers en ANSI, passer `-Encoding UTF8` à `Get-Content` pour un script contenant des accents.
 - Kernel-Power 107 est horodaté avec l'horloge d'avant la veille : ne pas l'utiliser.
 - npm exige `allowScripts` pour les scripts d'installation (esbuild autorisé) ; le binaire Electron se télécharge avec `npx install-electron`.
+
+## Économie de sortie (strict)
+
+### Réponses
+- Pas d'introduction, pas de reformulation de la demande, pas de « Bien sûr / Avec plaisir », pas de formule de fin ni de proposition d'aide.
+- Pas de récapitulatif de ce que tu viens de faire, sauf si on te le demande. Termine par : résultat + blocages éventuels. Rien d'autre.
+- Densité maximale : phrases courtes, style télégraphique accepté, listes plutôt que prose. Supprime les mots de remplissage.
+- N'explique pas ce que l'utilisateur sait évidemment. Explique seulement les décisions non évidentes, en une ligne.
+- Ne recopie pas dans le chat le code écrit ou les fichiers lus. Cite-les avec chemin:ligne.
+
+### Outils (contexte = coût)
+- Cherche avant de lire : grep/glob d'abord, puis lis seulement la plage utile (offset/limit).
+- Ne relis jamais un fichier déjà lu ou que tu viens de modifier.
+- Fais des modifications ciblées (Edit). Ne réécris jamais un fichier entier quand un diff suffit.
+- Tronque les commandes bavardes : `| tail -n 30`, `| head`, `--quiet`, `-q`. N'affiche jamais en entier les logs, les lockfiles, les sorties de build ni le contenu de node_modules.
+- Lance seulement les tests concernés, pas toute la suite, sauf demande.
+- Regroupe les appels d'outils indépendants dans un même tour.
+- Pas de sous-agents sans demande explicite.
+- Pas d'exploration au hasard : si la cible est claire, vas-y directement.
+
+### Demander ou agir
+- Ne demande pas la permission pour les étapes évidentes et réversibles : fais-les.
+- Demande seulement si tu es bloqué ou si un choix est coûteux ou irréversible : une question concise, avec les options.
+- Pas de plan pour les petites tâches : exécute.
+
+### L'honnêteté reste
+- La concision ne passe jamais avant l'exactitude : signale toujours les bugs, les risques, les tests en échec et les incertitudes, en une ligne.
