@@ -1,7 +1,7 @@
 {
   "name": "pointage",
   "productName": "Pointage",
-  "version": "0.4.1",
+  "version": "0.5.0",
   "description": "Suivi des heures de travail à partir des allumages et mises en veille du PC",
   "author": "Thomas Ruiz",
   "private": true,
