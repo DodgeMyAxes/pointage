@@ -73,13 +73,16 @@ describe('import texte', () => {
 
 describe('import CSV', () => {
   it('relit l’export CSV de Pointage', () => {
-    const d = donnees(journeeType('2026-11-09'), { '2026-11-10': { type: 'conge', note: 'Pont; "long"' } })
+    const d = donnees(journeeType('2026-11-09'), {
+      '2026-11-09': { matin: 'Projet A', apresMidi: 'Réunions' },
+      '2026-11-10': { type: 'conge', note: 'Pont; "long"' },
+    })
     const csv = exporterCsv(calculerPeriode(d, '2026-11-09', '2026-11-10', a('2026-11-12', '10:00')))
     const { format, jours, refus } = analyserImport(csv)
     expect(format).toBe('csv')
     expect(refus).toEqual([])
     expect(jours.map((j) => [j.cle, j.modif])).toEqual([
-      ['2026-11-09', { arrivee: '08:10', pause: '12:03', reprise: '13:31', depart: '16:58', type: 'travail' }],
+      ['2026-11-09', { arrivee: '08:10', pause: '12:03', reprise: '13:31', depart: '16:58', type: 'travail', matin: 'Projet A', apresMidi: 'Réunions' }],
       ['2026-11-10', { type: 'conge', note: 'Pont; "long"' }],
     ])
   })

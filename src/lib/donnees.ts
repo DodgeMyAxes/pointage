@@ -37,7 +37,14 @@ export interface Saisie {
   depart?: string
   type?: TypeJour
   note?: string
+  /** Activités de la matinée et de l'après-midi (projet, tâche…). */
+  matin?: string
+  apresMidi?: string
 }
+
+/** Textes libres d'un jour, avec leur longueur maximale. */
+export const TEXTES = { note: 200, matin: 100, apresMidi: 100 } as const
+export type Texte = keyof typeof TEXTES
 
 export interface Reglages {
   /** Durée quotidienne attendue, en minutes (7h22 = 442). */
@@ -131,7 +138,10 @@ function normaliserSaisie(brut: Record<string, unknown>): Saisie {
     if (estHeure(v)) s[champ] = v === '' ? '' : normaliserHeure(v)
   }
   if (estType(brut.type)) s.type = brut.type
-  if (typeof brut.note === 'string' && brut.note.trim()) s.note = brut.note.trim().slice(0, 200)
+  for (const [champ, max] of Object.entries(TEXTES) as [Texte, number][]) {
+    const v = brut[champ]
+    if (typeof v === 'string' && v.trim()) s[champ] = v.trim().slice(0, max)
+  }
   return s
 }
 
@@ -180,7 +190,7 @@ export function normaliser(brut: unknown): Donnees {
 }
 
 /** Modification d'un jour : une chaîne fixe la valeur, null revient à la valeur détectée (ou par défaut). */
-export type ModifSaisie = Partial<Record<Champ | 'type' | 'note', string | null>>
+export type ModifSaisie = Partial<Record<Champ | 'type' | Texte, string | null>>
 
 export function appliquerSaisie(donnees: Donnees, cle: string, modif: ModifSaisie): Donnees {
   if (!estCleJour(cle)) throw new Error(`Jour invalide : « ${cle} ».`)
@@ -200,10 +210,11 @@ export function appliquerSaisie(donnees: Donnees, cle: string, modif: ModifSaisi
     else if (estType(v)) saisie.type = v
     else throw new Error(`Type de jour inconnu pour le ${jour} : « ${v} ».`)
   }
-  if ('note' in modif) {
-    const v = modif.note?.trim()
-    if (v) saisie.note = v.slice(0, 200)
-    else delete saisie.note
+  for (const [champ, max] of Object.entries(TEXTES) as [Texte, number][]) {
+    if (!(champ in modif)) continue
+    const v = modif[champ]?.trim()
+    if (v) saisie[champ] = v.slice(0, max)
+    else delete saisie[champ]
   }
   const saisies = { ...donnees.saisies }
   if (Object.keys(saisie).length) saisies[cle] = saisie
@@ -233,4 +244,16 @@ export function appliquerReglages(donnees: Donnees, modif: Partial<Reglages>): D
   if (!estTheme(r.theme)) throw new Error(`Thème inconnu : « ${String(r.theme)} ».`)
   if (typeof r.majAuto !== 'boolean') throw new Error('Réglage de mise à jour automatique invalide.')
   return { ...donnees, reglages: r }
+}
+
+/** Activités déjà saisies, les plus récentes d'abord, sans doublon (casse ignorée) : propositions de saisie. */
+export function activitesConnues(saisies: Donnees['saisies'], max = 30): string[] {
+  const vues = new Map<string, string>()
+  for (const cle of Object.keys(saisies).sort().reverse()) {
+    for (const a of [saisies[cle].apresMidi, saisies[cle].matin]) {
+      if (a && !vues.has(a.toLocaleLowerCase('fr'))) vues.set(a.toLocaleLowerCase('fr'), a)
+    }
+    if (vues.size >= max) break
+  }
+  return [...vues.values()].slice(0, max)
 }

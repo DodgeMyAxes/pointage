@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 import { describe, expect, it } from 'vitest'
 import type { Etat } from '../../src/lib/api'
-import { bandeauMaj, calculer, echapper, texteSoldeZero, vueApercuImport, vueAujourdhui, vueMaj, vueMois, vueReglages, vueSynthese, type Contexte } from '../../src/renderer/vue'
+import { bandeauMaj, calculer, echapper, messageTexte, texteSoldeZero, vueApercuImport, vueAujourdhui, vueMaj, vueMois, vueReglages, vueSynthese, type Contexte } from '../../src/renderer/vue'
 import { a, donnees, ev, journeeType } from '../aides'
 
 const LUNDI = '2026-11-09'
@@ -227,5 +227,42 @@ describe('réglages', () => {
 
   it('échappe le HTML', () => {
     expect(echapper(`<a href="x">'&'</a>`)).toBe('&#60;a href=&#34;x&#34;&#62;&#39;&#38;&#39;&#60;/a&#62;')
+  })
+})
+
+describe('activités du matin et de l’après-midi', () => {
+  const saisies = { [LUNDI]: { matin: 'Projet <A>', apresMidi: 'Réunions' }, [MARDI]: { matin: 'Support' } }
+
+  it('se saisissent dans Aujourd’hui, avec les activités déjà connues en propositions', () => {
+    const ctx = contexte(donnees(journeeType(LUNDI), saisies))
+    const page = monter(vueAujourdhui(calculer(ctx)))
+    const champs = [...page.querySelectorAll<HTMLInputElement>('.activites-jour input[data-texte]')]
+    expect(champs.map((c) => [c.dataset.texte, c.value])).toEqual([['matin', 'Support'], ['apresMidi', '']])
+    expect(champs[0].closest<HTMLElement>('[data-cle]')!.dataset.cle).toBe(MARDI)
+    expect(champs[0].getAttribute('list')).toBe('activites')
+    expect([...page.querySelectorAll('#activites option')].map((o) => o.getAttribute('value'))).toEqual(['Support', 'Réunions', 'Projet <A>'])
+  })
+
+  it('ont leurs colonnes dans le journal et un total par activité sous le mois', () => {
+    const ctx = contexte(donnees(journeeType(LUNDI), saisies))
+    const page = monter(vueMois(calculer(ctx), ctx))
+    expect([...page.querySelectorAll('thead th')].slice(-3).map((t) => t.textContent)).toEqual(['Matin', 'Après-midi', 'Note'])
+    const lundi = page.querySelector(`tr.jour[data-cle="${LUNDI}"]`)!
+    expect([...lundi.querySelectorAll<HTMLInputElement>('td.activite input')].map((c) => c.value)).toEqual(['Projet <A>', 'Réunions'])
+    const totaux = [...page.querySelectorAll('.activites-mois li')].map((li) => li.textContent!.replace(/\s+/g, ' ').trim())
+    expect(totaux[0]).toBe('Projet <A> 3h53 1 demi-journée')
+    expect(totaux).toContain('Réunions 3h27 1 demi-journée')
+    expect(totaux).toHaveLength(2) // mardi en cours sans temps encore : pas de ligne « sans activité »
+  })
+
+  it('n’affiche pas de total sans aucune activité', () => {
+    const ctx = contexte(donnees(journeeType(LUNDI)))
+    expect(monter(vueMois(calculer(ctx), ctx)).querySelector('.activites-mois')).toBeNull()
+  })
+
+  it('annonce la saisie en nommant le jour et l’activité', () => {
+    expect(messageTexte('matin', LUNDI, 'Projet A')).toBe('Activité du matin du lundi 9 novembre : Projet A.')
+    expect(messageTexte('apresMidi', LUNDI, '')).toBe('Activité de l’après-midi du lundi 9 novembre effacée.')
+    expect(messageTexte('note', LUNDI, 'RDV')).toBe('Note du lundi 9 novembre enregistrée.')
   })
 })

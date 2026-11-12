@@ -304,7 +304,7 @@ table.journal { width: 100%; border-collapse: separate; border-spacing: 0; font-
 .numero { display: inline-block; width: 18px; text-align: right; font-size: 11px; color: var(--discret); opacity: 0.7; }
 .deplier { border: 0; background: none; padding: 2px 4px; border-radius: 4px; cursor: pointer; }
 .deplier:hover { text-decoration: underline; }
-.ferie { font-size: 11px; padding: 1px 6px; border-radius: 4px; background: var(--accent-doux); color: var(--accent); }
+.ferie { font-size: 11px; padding: 1px 6px; border-radius: 4px; background: var(--accent-doux); color: var(--accent); max-width: 72px; overflow: hidden; text-overflow: ellipsis; cursor: help; }
 
 .journal select.type {
   border: 1px solid transparent;
@@ -367,15 +367,16 @@ tr.jour:hover .retablir, .retablir:focus-visible { opacity: 1; }
 .hors-decompte { color: var(--discret); text-decoration: line-through; text-decoration-color: color-mix(in srgb, var(--discret) 50%, transparent); cursor: help; }
 tr.a-renseigner td { background: color-mix(in srgb, var(--attention-fond) 55%, transparent); }
 
-.journal td.note { width: 100%; min-width: 140px; }
-.note input {
+.journal td.note { width: 100%; min-width: 80px; }
+.journal td.activite { min-width: 96px; }
+input.texte {
   width: 100%;
   border: 1px solid transparent;
   background: transparent;
   border-radius: 6px;
   padding: 3px 6px;
 }
-.note input:hover, .note input:focus { border-color: var(--bord); background: var(--carte); outline: none; }
+input.texte:hover, input.texte:focus { border-color: var(--bord); background: var(--carte); outline: none; }
 
 .journal tr.semaine td { font-size: 12px; color: var(--discret); font-weight: 600; background: var(--fond); height: 28px; }
 .journal tr.details td { background: var(--fond); white-space: normal; }
@@ -429,3 +430,17 @@ code { font-family: "Cascadia Mono", Consolas, monospace; font-size: 12px; backg
   .formulaire { grid-template-columns: 1fr; gap: 6px; }
   .formulaire .aide { margin-bottom: 8px; }
 }
+
+/* --- Activités du matin et de l'après-midi --- */
+.activites-jour { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 12px; margin-top: 14px; }
+.activite-champ { display: flex; flex-direction: column; gap: 4px; }
+.activite-champ .etiquette { font-size: 12px; color: var(--discret); }
+.activites-jour input.texte { border-color: var(--bord); background: var(--fond); padding: 6px 8px; font-size: 14px; }
+.activites-jour input.texte:hover, .activites-jour input.texte:focus { background: var(--carte); border-color: var(--accent); }
+input.texte::placeholder { color: var(--discret); opacity: 0.8; }
+.activites-mois { margin-top: 14px; }
+.activites-mois h3 { margin: 0 0 6px; font-size: 13px; font-weight: 600; color: var(--discret); }
+.activites-mois ol { display: flex; flex-wrap: wrap; gap: 8px; margin: 0; padding: 0; list-style: none; }
+.activites-mois li { display: flex; align-items: baseline; gap: 8px; padding: 6px 10px; border-radius: 8px; background: var(--fond); font-size: 13px; }
+.activites-mois li b { font-variant-numeric: tabular-nums; }
+.activites-mois li.sans .nom { color: var(--discret); font-style: italic; }

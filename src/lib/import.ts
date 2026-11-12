@@ -3,7 +3,7 @@
  * - texte : une ligne par jour, « 02/11/2026 9:30 12:00 13:55 17:10 » ; deux heures = arrivée et départ sans pause ;
  *   un type (« congé », « férié »…) et une note peuvent suivre (« 06/11/2026 congé Pont ») ;
  * - CSV : séparateur « ; », « , » ou tabulation, avec une ligne d'en-tête qui nomme les colonnes (Date, Arrivée,
- *   Pause, Reprise, Départ, Type, Note ; les autres sont ignorées), comme l'export de Pointage.
+ *   Pause, Reprise, Départ, Type, Note, Matin, Après-midi ; les autres sont ignorées), comme l'export de Pointage.
  * Les lignes vides et celles qui commencent par « # » sont ignorées.
  */
 import { appliquerSaisie, LIBELLES_TYPES, TYPES, type Donnees, type ModifSaisie, type TypeJour } from './donnees'
@@ -125,7 +125,7 @@ export function cellulesCsv(ligne: string, separateur: string): string[] {
   return cellules.map((x) => x.trim())
 }
 
-const COLONNES = ['date', 'arrivee', 'pause', 'reprise', 'depart', 'type', 'note'] as const
+const COLONNES = ['date', 'arrivee', 'pause', 'reprise', 'depart', 'type', 'note', 'matin', 'apres-midi'] as const
 type Colonne = (typeof COLONNES)[number]
 
 /** En-tête CSV reconnu : séparateur et position des colonnes utiles ; null si la ligne n'en est pas un. */
@@ -166,6 +166,8 @@ function ligneCsv(cellules: string[], colonnes: Partial<Record<Colonne, number>>
     modif.type = t
   }
   if (valeur('note')) modif.note = valeur('note')
+  if (valeur('matin')) modif.matin = valeur('matin')
+  if (valeur('apres-midi')) modif.apresMidi = valeur('apres-midi')
   if (!Object.keys(modif).length) return 'ni heure, ni type, ni note'
   return { cle, ...modif }
 }

@@ -1,9 +1,9 @@
 /** Câblage de la fenêtre : état, rendu, actions de l'utilisateur. */
 import type { ApiPointage, Etat, FormatExport, Reponse } from '../lib/api'
-import { LIBELLES_CHAMPS, LIBELLES_THEMES, LIBELLES_TYPES, type Champ, type Reglages, type Theme, type TypeJour } from '../lib/donnees'
+import { LIBELLES_CHAMPS, LIBELLES_THEMES, LIBELLES_TYPES, type Champ, type Reglages, type Texte, type Theme, type TypeJour } from '../lib/donnees'
 import { ajouterMois, cleJourneeDe, heureDe, lireDuree, lireHeure, nomJourLong } from '../lib/temps'
 import { analyserImport } from '../lib/import'
-import { bandeauMaj, calculer, capitaliser, vueApercuImport, vueAujourdhui, vueImport, vueMois, vueReglages, vueSynthese, type Contexte } from './vue'
+import { bandeauMaj, calculer, capitaliser, messageTexte, vueApercuImport, vueAujourdhui, vueImport, vueMois, vueReglages, vueSynthese, type Contexte } from './vue'
 
 declare global {
   interface Window {
@@ -343,10 +343,11 @@ document.addEventListener('change', (e) => {
     const cle = cleDe(cible)
     const type = cible.value as TypeJour
     void appliquer(api.saisir(cle, { type }), `${capitaliser(nomJourLong(cle))} : ${LIBELLES_TYPES[type]}.`)
-  } else if (cible instanceof HTMLInputElement && cible.closest('td.note')) {
+  } else if (cible instanceof HTMLInputElement && cible.dataset.texte) {
     const cle = cleDe(cible)
-    const note = cible.value.trim()
-    void appliquer(api.saisir(cle, { note }), note ? `Note du ${nomJourLong(cle)} enregistrée.` : `Note du ${nomJourLong(cle)} effacée.`)
+    const champ = cible.dataset.texte as Texte
+    const valeur = cible.value.trim()
+    void appliquer(api.saisir(cle, { [champ]: valeur }), messageTexte(champ, cle, valeur))
   } else if (cible instanceof HTMLInputElement && cible.dataset.action === 'autostart') {
     void appliquer(api.autostart(cible.checked))
   } else if (cible instanceof HTMLInputElement && cible.dataset.jour) {
@@ -356,14 +357,14 @@ document.addEventListener('change', (e) => {
   }
 })
 
-// Pas de redessin pendant la frappe d'une note ou d'un réglage.
+// Pas de redessin pendant la frappe d'une note, d'une activité ou d'un réglage.
 document.addEventListener('focusin', (e) => {
   const cible = e.target as HTMLElement
-  if (cible.matches('td.note input, [data-reglage]:not([type="checkbox"]):not([type="radio"])')) edition = true
+  if (cible.matches('[data-texte], [data-reglage]:not([type="checkbox"]):not([type="radio"])')) edition = true
 })
 document.addEventListener('focusout', (e) => {
   const cible = e.target as HTMLElement
-  if (!cible.matches('td.note input, [data-reglage]:not([type="checkbox"]):not([type="radio"])')) return
+  if (!cible.matches('[data-texte], [data-reglage]:not([type="checkbox"]):not([type="radio"])')) return
   // Laisse passer l'événement « change » qui suit la perte du focus.
   setTimeout(() => {
     edition = false
@@ -383,7 +384,7 @@ document.addEventListener('keydown', (e) => {
     menuExport(false)
   }
   const cible = e.target as HTMLElement
-  if (e.key === 'Enter' && cible instanceof HTMLInputElement && cible.matches('td.note input, [data-reglage]')) cible.blur()
+  if (e.key === 'Enter' && cible instanceof HTMLInputElement && cible.matches('[data-texte], [data-reglage]')) cible.blur()
 })
 
 api.surMaj(() => void rafraichir())

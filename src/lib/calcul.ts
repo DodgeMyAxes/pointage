@@ -97,6 +97,8 @@ export interface Jour {
   typeManuel: boolean
   ferie?: string
   note?: string
+  matin?: string
+  apresMidi?: string
   attendu: number
   arrivee?: Moment
   pause?: Moment
@@ -123,7 +125,7 @@ export function calculerJour(cle: string, trans: readonly Transition[], donnees:
   const type = saisie.type ?? typeParDefaut(cle, reglages)
   const attendu = attenduPour(type, reglages)
   const jour: Jour = {
-    cle, type, typeManuel: saisie.type !== undefined, ferie: nomFerie(cle), note: saisie.note,
+    cle, type, typeManuel: saisie.type !== undefined, ferie: nomFerie(cle), note: saisie.note, matin: saisie.matin, apresMidi: saisie.apresMidi,
     attendu, auto, vides: [], travaille: null, ecart: null, statut: 'vide', compte: false,
   }
   for (const champ of CHAMPS) {
@@ -221,6 +223,49 @@ export function avancement(jours: readonly Jour[], dateDebut: string): Avancemen
     if (j.compte || j.statut === 'en-cours') res.fait += j.travaille ?? 0
   }
   return res
+}
+
+export interface TempsActivite {
+  /** Libellé tel que saisi la première fois ; undefined = demi-journées travaillées sans activité indiquée. */
+  activite?: string
+  minutes: number
+  /** Demi-journées comptées. */
+  demi: number
+}
+
+/**
+ * Temps passé par activité : la matinée va de l'arrivée à la pause, l'après-midi du reste de la journée. Sans
+ * pause, la journée entière va à l'activité indiquée, partagée en deux si les deux diffèrent. Les libellés sont
+ * regroupés sans tenir compte de la casse ; le plus long temps d'abord, « sans activité » en dernier. Mêmes jours que
+ * le temps « fait » de la période : ceux du décompte, journée en cours comprise.
+ */
+export function tempsParActivite(jours: readonly Jour[]): TempsActivite[] {
+  const parCle = new Map<string, TempsActivite>()
+  const ajouter = (activite: string | undefined, minutes: number, demi = 1) => {
+    if (minutes <= 0) return
+    const cle = activite?.toLocaleLowerCase('fr') ?? ''
+    const t = parCle.get(cle) ?? { activite, minutes: 0, demi: 0 }
+    t.minutes += minutes
+    t.demi += demi
+    parCle.set(cle, t)
+  }
+  for (const j of jours) {
+    const total = j.travaille ?? 0
+    if (total <= 0 || !(j.compte || j.statut === 'en-cours')) continue
+    if (j.arrivee && j.pause) {
+      const matin = Math.min(total, minutes(j.pause.t - j.arrivee.t))
+      ajouter(j.matin, matin)
+      ajouter(j.apresMidi, total - matin)
+    } else if (j.matin && j.apresMidi && j.matin.toLocaleLowerCase('fr') !== j.apresMidi.toLocaleLowerCase('fr')) {
+      const matin = Math.round(total / 2)
+      ajouter(j.matin, matin)
+      ajouter(j.apresMidi, total - matin)
+    } else {
+      ajouter(j.matin ?? j.apresMidi, total, 2)
+    }
+  }
+  return [...parCle.values()].sort((a, b) =>
+    a.activite === undefined ? 1 : b.activite === undefined ? -1 : b.minutes - a.minutes)
 }
 
 /** Premier jour connu : début du décompte, sinon premier événement ou première saisie. */

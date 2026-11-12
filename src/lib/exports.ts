@@ -36,7 +36,7 @@ export function exporterTxt(jours: readonly Jour[]): string {
 /** Export pour Excel : séparateur « ; », BOM UTF-8 pour les accents. */
 export function exporterCsv(jours: readonly Jour[]): string {
   const lignes = [
-    ['Date', 'Jour', 'Type', 'Arrivée', 'Pause', 'Reprise', 'Départ', 'Travaillé', 'Attendu', 'Écart', 'État', 'Note'],
+    ['Date', 'Jour', 'Type', 'Arrivée', 'Pause', 'Reprise', 'Départ', 'Travaillé', 'Attendu', 'Écart', 'État', 'Matin', 'Après-midi', 'Note'],
   ]
   for (const j of jours) {
     if (j.statut === 'futur') continue
@@ -52,6 +52,8 @@ export function exporterCsv(jours: readonly Jour[]): string {
       formatDuree(j.attendu),
       j.ecart === null ? '' : formatDuree(j.ecart, true),
       j.alerte ?? STATUTS[j.statut],
+      j.matin ?? '',
+      j.apresMidi ?? '',
       j.note ?? '',
     ])
   }

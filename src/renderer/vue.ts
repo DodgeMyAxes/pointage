@@ -1,11 +1,11 @@
 /** Rendu HTML de la fenêtre. Fonctions pures : l'état entre, du HTML sort (les événements sont dans app.ts). */
 import type { Etat } from '../lib/api'
 import {
-  avancement, bilan, calculerJour, calculerPeriode, departConseille, historique, solde, transitions,
-  type Avancement, type Conseil, type Jour,
+  avancement, bilan, calculerJour, calculerPeriode, departConseille, historique, solde, tempsParActivite, transitions,
+  type Avancement, type Conseil, type Jour, type TempsActivite,
 } from '../lib/calcul'
 import {
-  CHAMPS, LIBELLES_CHAMPS, LIBELLES_THEMES, LIBELLES_TYPES, THEMES, TYPES, type Champ, type TypeJour,
+  CHAMPS, LIBELLES_CHAMPS, LIBELLES_THEMES, LIBELLES_TYPES, TEXTES, THEMES, TYPES, activitesConnues, type Champ, type Texte, type TypeJour,
 } from '../lib/donnees'
 import { LIBELLES_NATURES } from '../lib/evenements'
 import { analyserImport, type JourImporte } from '../lib/import'
@@ -32,6 +32,10 @@ export interface Calculs {
   semaine: Avancement
   joursMois: Jour[]
   bilanMois: Avancement
+  /** Temps par activité sur le mois affiché. */
+  activitesMois: TempsActivite[]
+  /** Activités déjà saisies, proposées pendant la frappe. */
+  activites: string[]
   premier?: string
 }
 
@@ -52,6 +56,8 @@ export function calculer(ctx: Contexte): Calculs {
     semaine: avancement(calculerPeriode(donnees, lundi, ajouterJours(lundi, 6), ctx.maintenant, trans), donnees.reglages.dateDebut),
     joursMois,
     bilanMois: avancement(joursMois, donnees.reglages.dateDebut),
+    activitesMois: tempsParActivite(joursMois),
+    activites: activitesConnues(donnees.saisies),
     premier: jours[0]?.cle,
   }
 }
@@ -67,6 +73,29 @@ const classeEcart = (ecart: number) => (ecart > 0 ? 'positif' : ecart < 0 ? 'neg
 // --- Aujourd'hui -------------------------------------------------------------------------------------------
 
 const LIBELLES_HORAIRES: Record<Champ, string> = { arrivee: 'Arrivée', pause: 'Pause', reprise: 'Reprise', depart: 'Départ' }
+
+/** Demi-journées et leur activité. */
+type Moitie = 'matin' | 'apresMidi'
+export const LIBELLES_MOITIES: Record<Moitie, string> = { matin: 'Matin', apresMidi: 'Après-midi' }
+const DE_LA_MOITIE: Record<Moitie, string> = { matin: 'du matin', apresMidi: 'de l’après-midi' }
+
+/** Champ d'activité d'une demi-journée, avec les activités déjà saisies en propositions (#activites). */
+function champActivite(j: Jour, moitie: Moitie, placeholder = ''): string {
+  return `<input type="text" class="texte" data-texte="${moitie}" list="activites" value="${echapper(j[moitie] ?? '')}" title="${echapper(j[moitie] ?? '')}"
+    maxlength="${TEXTES[moitie]}" placeholder="${placeholder}" aria-label="Activité ${DE_LA_MOITIE[moitie]} du ${nomJourLong(j.cle)}">`
+}
+
+/** Message après la saisie d'une note ou d'une activité, qui nomme le jour et la valeur. */
+export function messageTexte(champ: Texte, cle: string, valeur: string): string {
+  const jour = nomJourLong(cle)
+  if (champ === 'note') return valeur ? `Note du ${jour} enregistrée.` : `Note du ${jour} effacée.`
+  const quoi = `Activité ${DE_LA_MOITIE[champ]} du ${jour}`
+  return valeur ? `${quoi} : ${valeur}.` : `${quoi} effacée.`
+}
+
+function listeActivites(activites: readonly string[]): string {
+  return `<datalist id="activites">${activites.map((a) => `<option value="${echapper(a)}"></option>`).join('')}</datalist>`
+}
 
 /** Heure de départ qui ramène le solde à zéro, seulement si elle a un sens aujourd'hui. */
 export function texteSoldeZero(j: Jour, conseil: Conseil, maintenant: number): string {
@@ -129,6 +158,13 @@ export function vueAujourdhui(c: Calculs): string {
       ${conseil}
     </div>
     ${progression}
+    <div class="activites-jour" data-cle="${j.cle}">
+      ${(['matin', 'apresMidi'] as const).map((m) => `<label class="activite-champ">
+        <span class="etiquette">Activité ${DE_LA_MOITIE[m]}</span>
+        ${champActivite(j, m, m === 'matin' ? 'Projet, tâche…' : '')}
+      </label>`).join('')}
+    </div>
+    ${listeActivites(c.activites)}
   </section>`
 }
 
@@ -205,13 +241,15 @@ function ligneJour(j: Jour, ctx: Contexte, numero: number): string {
     <td class="date"><div class="date-contenu">
       <span class="numero">${numero}</span>
       <button type="button" class="deplier" data-action="details" aria-expanded="${ouvert}" title="Voir les événements du jour">${nomJourCourt(j.cle)}</button>
-      ${j.ferie ? `<span class="ferie">${echapper(j.ferie)}</span>` : ''}
+      ${j.ferie ? `<span class="ferie" title="${echapper(j.ferie)}">${echapper(j.ferie)}</span>` : ''}
     </div></td>
     <td><select class="type${j.typeManuel ? ' manuel' : ''}" aria-label="Type du ${nomJourLong(j.cle)}">${options}</select></td>
     ${CHAMPS.map((champ) => celluleHeure(j, champ)).join('')}
     <td class="duree">${duree}</td>
     <td class="ecart">${ecart}</td>
-    <td class="note"><input type="text" value="${echapper(j.note ?? '')}" maxlength="200" aria-label="Note du ${nomJourLong(j.cle)}"></td>
+    <td class="activite">${champActivite(j, 'matin')}</td>
+    <td class="activite">${champActivite(j, 'apresMidi')}</td>
+    <td class="note"><input type="text" class="texte" data-texte="note" value="${echapper(j.note ?? '')}" maxlength="${TEXTES.note}" aria-label="Note du ${nomJourLong(j.cle)}"></td>
   </tr>`
   return ouvert ? ligne + ligneDetails(j, ctx) : ligne
 }
@@ -223,7 +261,7 @@ function ligneDetails(j: Jour, ctx: Contexte): string {
   const contenu = evenements.length
     ? `<ol class="evenements">${evenements.map((e) => `<li><b>${heureDe(e.t)}</b> ${LIBELLES_NATURES[e.nature]}</li>`).join('')}</ol>`
     : '<span class="discret">Aucun événement enregistré pour ce jour.</span>'
-  return `<tr class="details" data-cle="${j.cle}"><td colspan="9">${contenu}</td></tr>`
+  return `<tr class="details" data-cle="${j.cle}"><td colspan="11">${contenu}</td></tr>`
 }
 
 function ligneSemaine(jours: readonly Jour[]): string {
@@ -232,7 +270,7 @@ function ligneSemaine(jours: readonly Jour[]): string {
     <td colspan="6">Total semaine ${numeroSemaine(jours[0].cle)}</td>
     <td class="duree">${b.jours ? formatDuree(b.travaille) : ''}</td>
     <td class="ecart">${b.jours ? `<span class="${classeEcart(b.ecart)}">${formatDuree(b.ecart, true)}</span>` : ''}</td>
-    <td></td>
+    <td colspan="3"></td>
   </tr>`
 }
 
@@ -262,12 +300,27 @@ export function vueMois(c: Calculs, ctx: Contexte): string {
       <table class="journal">
         <thead><tr>
           <th>Jour</th><th>Type</th><th>Arrivée</th><th>Pause</th><th>Reprise</th><th>Départ</th>
-          <th>Travaillé</th><th>Écart</th><th>Note</th>
+          <th>Travaillé</th><th>Écart</th><th>${LIBELLES_MOITIES.matin}</th><th>${LIBELLES_MOITIES.apresMidi}</th><th>Note</th>
         </tr></thead>
         <tbody>${lignes.join('')}</tbody>
       </table>
     </div>
+    ${vueActivitesMois(c.activitesMois)}
   </section>`
+}
+
+/** Temps passé par activité sur le mois, affiché dès qu'une activité est indiquée. */
+function vueActivitesMois(temps: readonly TempsActivite[]): string {
+  if (!temps.some((t) => t.activite)) return ''
+  const lignes = temps.map((t) => `<li${t.activite ? '' : ' class="sans"'}>
+    <span class="nom">${t.activite ? echapper(t.activite) : 'Sans activité indiquée'}</span>
+    <b>${formatDuree(t.minutes)}</b>
+    <span class="discret">${t.demi} demi-journée${t.demi > 1 ? 's' : ''}</span>
+  </li>`).join('')
+  return `<div class="activites-mois">
+    <h3>Temps par activité</h3>
+    <ol>${lignes}</ol>
+  </div>`
 }
 
 // --- Import ------------------------------------------------------------------------------------------------
@@ -282,7 +335,7 @@ export function vueImport(): string {
     </div>
     <p class="aide">Une ligne par jour : la date, puis l’arrivée, la pause, la reprise et le départ (ou seulement l’arrivée et le départ).
       Un type (congé, férié, récupération, demi-journée, absence…) et une note peuvent suivre.
-      Un tableau CSV avec une ligne d’en-tête (Date, Arrivée, Pause, Reprise, Départ, Type, Note) convient aussi.</p>
+      Un tableau CSV avec une ligne d’en-tête (Date, Arrivée, Pause, Reprise, Départ, Type, Note, Matin, Après-midi) convient aussi.</p>
     <textarea id="texte-import" rows="10" spellcheck="false" aria-label="Lignes à importer"
       placeholder="02/11/2026 9:30 12:00 13:55 17:10&#10;03/11/2026 8:45 17:30&#10;04/11/2026 congé&#10;05/11/2026 8:30 12:15 13:30 16:50 Formation"></textarea>
     <div id="apercu-import" aria-live="polite">${vueApercuImport('', {})}</div>
@@ -297,11 +350,13 @@ export function vueImport(): string {
 
 /** « 09:30 – 12:00 / 13:55 – 17:10 · Congé · « note » » */
 function resumeModif(j: JourImporte): string {
-  const { arrivee, pause, reprise, depart, type, note } = j.modif
+  const { arrivee, pause, reprise, depart, type, note, matin, apresMidi } = j.modif
   const morceaux: string[] = []
   if (arrivee && depart) morceaux.push(pause ? `${arrivee} – ${pause} / ${reprise} – ${depart}` : `${arrivee} – ${depart}, sans pause`)
   else for (const champ of CHAMPS) if (j.modif[champ]) morceaux.push(`${LIBELLES_CHAMPS[champ]} ${j.modif[champ]}`)
   if (type) morceaux.push(LIBELLES_TYPES[type as TypeJour])
+  if (matin) morceaux.push(`matin : ${matin}`)
+  if (apresMidi) morceaux.push(`après-midi : ${apresMidi}`)
   if (note) morceaux.push(`« ${note} »`)
   return morceaux.join(' · ')
 }

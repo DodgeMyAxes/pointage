@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import {
-  avancement, bilan, calculerJour, calculerPeriode, departConseille, historique, premierJour, solde, transitions,
+  avancement, bilan, calculerJour, calculerPeriode, departConseille, historique, premierJour, solde, tempsParActivite, transitions,
 } from '../../src/lib/calcul'
 import { heureDe } from '../../src/lib/temps'
 import { a, donnees, ev, journeeType } from '../aides'
@@ -221,5 +221,33 @@ describe('bilans et solde', () => {
 
   it('calcule une période quelconque', () => {
     expect(calculerPeriode(donnees(), '2026-11-01', '2026-11-30', APRES)).toHaveLength(30)
+  })
+})
+
+describe('temps par activité', () => {
+  const periode = (d: ReturnType<typeof donnees>) => calculerPeriode(d, LUNDI, '2026-11-13', APRES, transitions(d.evenements))
+
+  it('compte la matinée jusqu’à la pause et l’après-midi depuis la reprise, casse ignorée', () => {
+    const d = donnees([...journeeType(LUNDI), ...journeeType(MARDI)], {
+      [LUNDI]: { matin: 'Projet A', apresMidi: 'Réunions' },
+      [MARDI]: { matin: 'projet a' },
+    })
+    expect(tempsParActivite(periode(d))).toEqual([
+      { activite: 'Projet A', minutes: 2 * 233, demi: 2 },
+      { activite: 'Réunions', minutes: 207, demi: 1 },
+      { activite: undefined, minutes: 207, demi: 1 },
+    ])
+  })
+
+  it('partage une journée sans pause entre deux activités, ou la donne entière à une seule', () => {
+    const sansPause = { arrivee: '09:00', pause: '', reprise: '', depart: '17:00' }
+    const d = donnees([], {
+      [LUNDI]: { ...sansPause, matin: 'A', apresMidi: 'B' },
+      [MARDI]: { ...sansPause, apresMidi: 'B' },
+    })
+    expect(tempsParActivite(periode(d))).toEqual([
+      { activite: 'B', minutes: 240 + 480, demi: 3 },
+      { activite: 'A', minutes: 240, demi: 1 },
+    ])
   })
 })

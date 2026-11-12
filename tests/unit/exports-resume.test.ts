@@ -8,12 +8,12 @@ const LUNDI = '2026-11-09'
 
 describe('export CSV', () => {
   it('écrit une ligne par jour passé, lisible par Excel', () => {
-    const d = donnees(journeeType(LUNDI), { [LUNDI]: { note: 'Réunion; "client"' } })
+    const d = donnees(journeeType(LUNDI), { [LUNDI]: { note: 'Réunion; "client"', matin: 'Projet A' } })
     const csv = exporterCsv(calculerPeriode(d, LUNDI, '2026-11-12', a('2026-11-10', '12:00')))
     const lignes = csv.slice(1).trimEnd().split('\r\n')
     expect(csv.startsWith('﻿')).toBe(true)
-    expect(lignes[0]).toBe('Date;Jour;Type;Arrivée;Pause;Reprise;Départ;Travaillé;Attendu;Écart;État;Note')
-    expect(lignes[1]).toBe('09/11/2026;lun.;Travail;08:10;12:03;13:31;16:58;7h20;7h22;-0h02;;"Réunion; ""client"""')
+    expect(lignes[0]).toBe('Date;Jour;Type;Arrivée;Pause;Reprise;Départ;Travaillé;Attendu;Écart;État;Matin;Après-midi;Note')
+    expect(lignes[1]).toBe('09/11/2026;lun.;Travail;08:10;12:03;13:31;16:58;7h20;7h22;-0h02;;Projet A;;"Réunion; ""client"""')
     expect(lignes).toHaveLength(3) // les jours à venir ne sont pas exportés
   })
 })

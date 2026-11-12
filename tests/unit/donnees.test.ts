@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import {
-  REGLAGES_PAR_DEFAUT, appliquerReglages, appliquerSaisie, donneesPremierLancement, donneesVides, normaliser,
+  REGLAGES_PAR_DEFAUT, activitesConnues, appliquerReglages, appliquerSaisie, donneesPremierLancement, donneesVides, normaliser,
   typeParDefaut,
 } from '../../src/lib/donnees'
 
@@ -101,5 +101,29 @@ describe('appliquerReglages', () => {
     const d = appliquerReglages(donneesVides(), { joursTravailles: [1, 2, 3, 4] })
     expect(typeParDefaut('2026-11-13', d.reglages)).toBe('repos')
     expect(typeParDefaut('2026-11-12', d.reglages)).toBe('travail')
+  })
+})
+
+describe('activités du matin et de l’après-midi', () => {
+  it('enregistre, raccourcit et efface les activités', () => {
+    let d = appliquerSaisie(donneesVides(), '2026-11-09', { matin: '  Projet A ', apresMidi: 'x'.repeat(150) })
+    expect(d.saisies['2026-11-09']).toEqual({ matin: 'Projet A', apresMidi: 'x'.repeat(100) })
+    d = appliquerSaisie(d, '2026-11-09', { matin: '', apresMidi: null })
+    expect(d.saisies['2026-11-09']).toBeUndefined()
+  })
+
+  it('relit les activités d’un fichier et écarte les valeurs invalides', () => {
+    const d = normaliser({ saisies: { '2026-11-09': { matin: 'Projet A', apresMidi: 42 } } })
+    expect(d.saisies['2026-11-09']).toEqual({ matin: 'Projet A' })
+  })
+
+  it('propose les activités déjà saisies, les plus récentes d’abord, sans doublon', () => {
+    const saisies = {
+      '2026-11-02': { matin: 'Ancien', apresMidi: 'projet a' },
+      '2026-11-09': { matin: 'Projet A', apresMidi: 'Réunions' },
+      '2026-11-10': { note: 'rien' },
+    }
+    expect(activitesConnues(saisies)).toEqual(['Réunions', 'Projet A', 'Ancien'])
+    expect(activitesConnues(saisies, 1)).toEqual(['Réunions'])
   })
 })
