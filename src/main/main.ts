@@ -497,7 +497,7 @@ function enregistrerIpc(): void {
       changerMaj({ ...maj, statut: 'telechargement', progression: 0, erreur: undefined })
       const chemin = await telecharger(publiee.installateur, (progression) => changerMaj({ ...maj, progression }))
       changerMaj({ ...maj, statut: 'installation' })
-      installer(chemin)
+      await installer(chemin)
       return { ok: true, etat: etat(), message: `Installation de Pointage ${publiee.version} : l’application redémarre dans un instant.` }
     } catch (e) {
       const erreur = e instanceof Error ? e.message : String(e)
@@ -534,8 +534,14 @@ function enregistrerIpc(): void {
       cancelId: 1,
     })
     if (confirmation.response !== 0) return { ok: true, etat: etat() }
-    changerMaj({ ...maj, statut: 'installation' })
-    installer(chemin)
+    changerMaj({ ...maj, statut: 'installation', erreur: undefined })
+    try {
+      await installer(chemin)
+    } catch (e) {
+      const erreur = e instanceof Error ? e.message : String(e)
+      changerMaj({ ...maj, statut: 'erreur', erreur })
+      return { ok: false, erreur }
+    }
     return { ok: true, etat: etat(), message: `Installation de Pointage ${version} : l’application redémarre dans un instant.` }
   })
 

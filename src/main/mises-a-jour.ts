@@ -4,12 +4,14 @@
  */
 import { spawn } from 'node:child_process'
 import { createHash } from 'node:crypto'
-import { createWriteStream, mkdirSync, rmSync } from 'node:fs'
-import { join } from 'node:path'
+import { copyFileSync, createWriteStream, mkdirSync, rmSync } from 'node:fs'
+import { basename, join } from 'node:path'
 import { Readable } from 'node:stream'
 import { pipeline } from 'node:stream/promises'
-import { app, net } from 'electron'
-import { URL_DERNIERE_VERSION, lireVersionPubliee, type Installateur, type VersionPubliee } from '../lib/maj'
+import { app, net, shell } from 'electron'
+import {
+  URL_DERNIERE_VERSION, emplacementsInstallateur, lancementRefuse, lireVersionPubliee, type Installateur, type VersionPubliee,
+} from '../lib/maj'
 
 /** Dernière version publiée ; null si aucune version n'est encore publiée. */
 export async function chercherDerniereVersion(): Promise<VersionPubliee | null> {
@@ -65,7 +67,44 @@ export async function telecharger(installateur: Installateur, surProgression: (p
  * données (dans %APPDATA%) et relance Pointage (`--force-run`, qui reçoit alors `--updated`). L'application se ferme
  * aussitôt pour libérer ses fichiers.
  */
-export function installer(chemin: string): void {
-  spawn(chemin, ['/S', '--updated', '--force-run'], { detached: true, stdio: 'ignore', windowsHide: true }).unref()
+export async function installer(chemin: string): Promise<void> {
+  const [premier, ...autres] = emplacementsInstallateur(chemin, app.getPath('downloads'))
+  let essai = premier!
+  try {
+    await lancer(essai)
+  } catch (e) {
+    // Refusé là (AppData interdit aux programmes) : nouvel essai depuis Téléchargements.
+    if (!lancementRefuse(e) || autres.length === 0) throw expliquer(e, essai)
+    essai = autres[0]!
+    copyFileSync(chemin, essai)
+    try {
+      await lancer(essai)
+    } catch (e2) {
+      throw expliquer(e2, essai)
+    }
+  }
   setTimeout(() => app.quit(), 300)
+}
+
+/** Lance l'installateur détaché ; échoue si Windows refuse de le démarrer (erreur levée aussitôt ou annoncée ensuite). */
+function lancer(chemin: string): Promise<void> {
+  return new Promise((resolve, reject) => {
+    try {
+      const processus = spawn(chemin, ['/S', '--updated', '--force-run'], { detached: true, stdio: 'ignore', windowsHide: true })
+      processus.once('error', reject)
+      processus.once('spawn', () => {
+        processus.unref()
+        resolve()
+      })
+    } catch (e) {
+      reject(e)
+    }
+  })
+}
+
+/** Refus de Windows : l'installateur est montré dans l'Explorateur pour un lancement à la main. */
+function expliquer(erreur: unknown, chemin: string): Error {
+  if (!lancementRefuse(erreur)) return erreur instanceof Error ? erreur : new Error(String(erreur))
+  shell.showItemInFolder(chemin)
+  return new Error(`Windows refuse de lancer l’installateur (règle de l’entreprise ou antivirus). ${basename(chemin)} est ouvert dans l’Explorateur : double-cliquez dessus pour installer la mise à jour.`)
 }

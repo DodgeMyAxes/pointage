@@ -2,6 +2,25 @@
 
 import { cleJourneeDe, lundiDe } from './temps'
 
+/**
+ * Emplacements d'où lancer l'installateur, dans l'ordre : là où il est, puis le dossier Téléchargements. Un PC
+ * d'entreprise interdit souvent les programmes dans AppData, dossier temporaire compris (`spawn EPERM`), mais pas
+ * dans Téléchargements, d'où l'utilisateur a lancé son premier installateur.
+ */
+export function emplacementsInstallateur(chemin: string, telechargements: string): string[] {
+  // Sans node:path : ce fichier sert aussi à la fenêtre.
+  const nom = chemin.split(/[\\/]/).pop()!
+  const copie = `${telechargements.replace(/[\\/]+$/, '')}\\${nom}`
+  const dossier = (c: string) => c.replace(/\//g, '\\').replace(/\\[^\\]*$/, '').toLowerCase()
+  return dossier(copie) === dossier(chemin) ? [chemin] : [chemin, copie]
+}
+
+/** Lancement refusé par Windows (règle de l'entreprise, antivirus) : on peut réessayer ailleurs. */
+export function lancementRefuse(erreur: unknown): boolean {
+  const code = (erreur as { code?: unknown } | null)?.code
+  return code === 'EPERM' || code === 'EACCES'
+}
+
 export const DEPOT = 'DodgeMyAxes/pointage'
 export const URL_DERNIERE_VERSION = `https://api.github.com/repos/${DEPOT}/releases/latest`
 const MOTIF_INSTALLATEUR = /^Pointage-Installation-(\d+\.\d+\.\d+)\.exe$/i

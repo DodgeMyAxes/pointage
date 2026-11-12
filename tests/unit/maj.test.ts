@@ -1,8 +1,29 @@
 import { describe, expect, it } from 'vitest'
 import {
-  ancienneInstallationAEffacer, comparerVersions, dossierInstallation, dossierPortable, estCopieInstallee, jugerEmplacement, lignesNotes, lireVersionPubliee,
-  pageVersion, rechercheHebdoDue, versionDepuisNom,
+  ancienneInstallationAEffacer, comparerVersions, dossierInstallation, dossierPortable, emplacementsInstallateur, estCopieInstallee, jugerEmplacement,
+  lancementRefuse, lignesNotes, lireVersionPubliee, pageVersion, rechercheHebdoDue, versionDepuisNom,
 } from '../../src/lib/maj'
+
+describe('lancement de l’installateur', () => {
+  const telechargements = 'C:\\Users\\moi\\Downloads'
+
+  it('essaie le dossier temporaire puis Téléchargements', () => {
+    const temp = 'C:\\Users\\moi\\AppData\\Local\\Temp\\Pointage-mise-a-jour\\Pointage-Installation-0.5.0.exe'
+    expect(emplacementsInstallateur(temp, telechargements)).toEqual([temp, 'C:\\Users\\moi\\Downloads\\Pointage-Installation-0.5.0.exe'])
+  })
+
+  it('ne copie pas un installateur déjà dans Téléchargements', () => {
+    const ici = 'c:\\users\\moi\\downloads\\Pointage-Installation-0.5.0.exe'
+    expect(emplacementsInstallateur(ici, telechargements)).toEqual([ici])
+  })
+
+  it('reconnaît un refus de Windows', () => {
+    expect(lancementRefuse(Object.assign(new Error('spawn EPERM'), { code: 'EPERM' }))).toBe(true)
+    expect(lancementRefuse({ code: 'EACCES' })).toBe(true)
+    expect(lancementRefuse({ code: 'ENOENT' })).toBe(false)
+    expect(lancementRefuse(null)).toBe(false)
+  })
+})
 
 describe('copie installée', () => {
   const local = String.raw`C:\Users\moi\AppData\Local`
