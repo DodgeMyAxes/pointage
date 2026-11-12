@@ -9,8 +9,20 @@
   ClearErrors
 !macroend
 
+; Icône du bureau, comme les premières versions : à la première installation seulement (une mise à jour ne la recrée
+; pas si l'utilisateur l'a supprimée). Créée ici plutôt que par createDesktopShortcut, dont l'échec arrêterait
+; l'installation : un refus (stratégie de l'entreprise) est ignoré. Installation pour tous : bureau commun.
+!macro customInstall
+  ${ifNot} ${isUpdated}
+    ClearErrors
+    CreateShortCut "$DESKTOP\Pointage.lnk" "$INSTDIR\Pointage.exe" "" "$INSTDIR\Pointage.exe" 0
+    ClearErrors
+  ${endIf}
+!macroend
+
 !macro customUnInstall
   ${ifNot} ${isUpdated}
+    Delete "$DESKTOP\Pointage.lnk"
     SetShellVarContext current
     Delete "$SMPROGRAMS\Pointage.lnk"
     ${if} $installMode == "all"

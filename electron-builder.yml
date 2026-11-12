@@ -23,8 +23,9 @@ nsis:
   allowToChangeInstallationDirectory: true
   shortcutName: Pointage
   runAfterFinish: true
-  # Aucun raccourci créé par l'installateur : sa création échouait sur un PC d'entreprise (« Erreur non spécifiée »
-  # sur Pointage.lnk) et arrêtait l'installation. Pointage installé crée lui-même son raccourci du menu Démarrer.
+  # Raccourcis faits à part (build/installer.nsh pour le bureau, Pointage lui-même pour le menu Démarrer) : leur création
+  # par electron-builder échouait sur un PC d'entreprise (« Erreur non spécifiée »
+  # sur Pointage.lnk) et arrêtait l'installation.
   createStartMenuShortcut: false
   createDesktopShortcut: false
   artifactName: Pointage-Installation-${version}.exe
