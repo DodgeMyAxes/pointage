@@ -410,7 +410,11 @@ input.texte:hover, input.texte:focus { border-color: var(--bord); background: va
 code { font-family: "Cascadia Mono", Consolas, monospace; font-size: 12px; background: var(--fond); padding: 1px 5px; border-radius: 4px; word-break: break-all; }
 
 /* --- Messages --- */
-#toasts { position: fixed; right: 16px; bottom: 16px; z-index: 50; display: flex; flex-direction: column; gap: 8px; align-items: flex-end; pointer-events: none; }
+/* En haut, centrés, sous la barre de menu, au-dessus des fenêtres ouvertes. */
+#toasts {
+  position: fixed; top: 64px; left: 50%; transform: translateX(-50%); z-index: 50; width: max-content; max-width: calc(100vw - 32px);
+  display: flex; flex-direction: column; gap: 8px; align-items: center; pointer-events: none;
+}
 .toast {
   max-width: 440px;
   padding: 10px 14px;
@@ -422,9 +426,15 @@ code { font-family: "Cascadia Mono", Consolas, monospace; font-size: 12px; backg
   transition: opacity 0.3s, transform 0.3s;
 }
 .toast.erreur { background: var(--negatif); color: #fff; }
-.toast.sortie { opacity: 0; transform: translateY(6px); }
+.toast.sortie { opacity: 0; transform: translateY(-6px); }
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { transition: none !important; animation: none !important; scroll-behavior: auto !important; }
+}
 
 :focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+/* Champ refusé (vide ou invalide) : bordure rouge jusqu'à ce qu'il soit rempli. */
+input[aria-invalid="true"] { border-color: var(--negatif) !important; box-shadow: 0 0 0 1px var(--negatif); }
 
 @media (max-width: 760px) {
   .barre-contenu { gap: 12px; flex-wrap: wrap; padding-block: 8px; }

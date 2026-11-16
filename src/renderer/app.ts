@@ -69,6 +69,7 @@ function rendre(): void {
 
   const contenu = $('#contenu')
   const defilement = contenu.querySelector('.defilement')?.scrollTop ?? 0
+  const focus = reperer(contenu)
   if (vue === 'reglages') contenu.innerHTML = vueReglages(etat)
   else {
     const c = calculer(ctx)
@@ -76,6 +77,29 @@ function rendre(): void {
     const zone = contenu.querySelector('.defilement')
     if (zone) zone.scrollTop = defilement
   }
+  if (focus) retrouver(contenu, focus)?.focus({ preventScroll: true })
+}
+
+const FOCALISABLES = 'button, input, select, textarea, a[href]'
+
+/** Élément qui a le focus clavier, repéré pour le lui rendre après le redessin (toutes les 30 s). */
+interface Repere {
+  rang: number
+  signature: string
+}
+
+const signature = (el: Element) =>
+  `${el.tagName}|${el.getAttribute('data-action') ?? ''}|${el.closest<HTMLElement>('[data-cle]')?.dataset.cle ?? ''}`
+
+function reperer(contenu: HTMLElement): Repere | null {
+  const actif = document.activeElement
+  if (!actif || !contenu.contains(actif)) return null
+  return { rang: [...contenu.querySelectorAll(FOCALISABLES)].indexOf(actif), signature: signature(actif) }
+}
+
+function retrouver(contenu: HTMLElement, repere: Repere): HTMLElement | null {
+  const el = contenu.querySelectorAll<HTMLElement>(FOCALISABLES)[repere.rang]
+  return el && signature(el) === repere.signature ? el : null
 }
 
 async function rafraichir(): Promise<void> {
@@ -140,19 +164,20 @@ async function retablirHeure(cellule: HTMLTableCellElement): Promise<void> {
 async function changerReglage(champ: HTMLInputElement): Promise<void> {
   const cle = champ.dataset.reglage as keyof Reglages
   const valeur = champ.value
+  if (REGLAGES_OBLIGATOIRES[cle] && !valeur.trim()) return erreurReglage(champ, `${REGLAGES_OBLIGATOIRES[cle]} : valeur obligatoire.`)
   let modif: Partial<Reglages>
   let message: string
   switch (cle) {
     case 'objectif': {
       const duree = lireDuree(valeur)
-      if (duree === null || duree <= 0) return erreurReglage(`Temps de travail par jour invalide : « ${valeur} » (exemple : 7h22).`)
+      if (duree === null || duree <= 0) return erreurReglage(champ, `Temps de travail par jour invalide : « ${valeur} » (exemple : 7h22).`)
       modif = { objectif: duree }
       message = `Temps de travail par jour : ${valeur.trim()}.`
       break
     }
     case 'soldeInitial': {
       const duree = lireDuree(valeur)
-      if (duree === null) return erreurReglage(`Solde de départ invalide : « ${valeur} » (exemple : +3h15).`)
+      if (duree === null) return erreurReglage(champ, `Solde de départ invalide : « ${valeur} » (exemple : +3h15).`)
       modif = { soldeInitial: duree }
       message = `Solde de départ : ${valeur.trim()}.`
       break
@@ -186,12 +211,25 @@ async function changerReglage(champ: HTMLInputElement): Promise<void> {
     default:
       return
   }
+  champ.removeAttribute('aria-invalid')
   await appliquer(api.reglages(modif), message)
 }
 
-function erreurReglage(message: string): void {
+/** Réglages à valeur obligatoire, avec le nom donné dans le message d'erreur. */
+const REGLAGES_OBLIGATOIRES: Partial<Record<keyof Reglages, string>> = {
+  objectif: 'Temps de travail par jour',
+  soldeInitial: 'Solde de départ',
+  pauseDebut: 'Début de la plage de pause',
+  pauseFin: 'Fin de la plage de pause',
+  pauseMin: 'Pause minimale',
+  pausePrevue: 'Pause prévue',
+}
+
+/** Champ refusé : en rouge, avec le focus, jusqu'à ce qu'il soit rempli. */
+function erreurReglage(champ: HTMLInputElement, message: string): void {
+  champ.setAttribute('aria-invalid', 'true')
+  champ.focus()
   toast(message, true)
-  rendre()
 }
 
 async function changerJours(): Promise<void> {
@@ -350,6 +388,7 @@ document.addEventListener('click', (e) => {
 document.addEventListener('change', (e) => {
   const cible = e.target as HTMLElement
   if (cible instanceof HTMLSelectElement && cible.classList.contains('type')) {
+    edition = false // le choix est fait : la ligne se redessine tout de suite
     const cle = cleDe(cible)
     const type = cible.value as TypeJour
     void appliquer(api.saisir(cle, { type }), `${capitaliser(nomJourLong(cle))} : ${LIBELLES_TYPES[type]}.`)
@@ -367,14 +406,13 @@ document.addEventListener('change', (e) => {
   }
 })
 
-// Pas de redessin pendant la frappe d'une note, d'une activité ou d'un réglage.
+// Pas de redessin pendant la frappe d'une note, d'une activité ou d'un réglage, ni liste « Type » ouverte.
+const SAISIES = '[data-texte], [data-reglage]:not([type="checkbox"]):not([type="radio"]), select.type'
 document.addEventListener('focusin', (e) => {
-  const cible = e.target as HTMLElement
-  if (cible.matches('[data-texte], [data-reglage]:not([type="checkbox"]):not([type="radio"])')) edition = true
+  if ((e.target as HTMLElement).matches(SAISIES)) edition = true
 })
 document.addEventListener('focusout', (e) => {
-  const cible = e.target as HTMLElement
-  if (!cible.matches('[data-texte], [data-reglage]:not([type="checkbox"]):not([type="radio"])')) return
+  if (!(e.target as HTMLElement).matches(SAISIES)) return
   // Laisse passer l'événement « change » qui suit la perte du focus.
   setTimeout(() => {
     edition = false
@@ -385,7 +423,9 @@ document.addEventListener('focusout', (e) => {
   }, 0)
 })
 document.addEventListener('input', (e) => {
-  if ((e.target as HTMLElement).id === 'texte-import') majApercuImport()
+  const cible = e.target as HTMLInputElement
+  if (cible.id === 'texte-import') majApercuImport()
+  if (cible.getAttribute('aria-invalid') === 'true' && cible.value.trim()) cible.removeAttribute('aria-invalid')
 })
 
 document.addEventListener('keydown', (e) => {
