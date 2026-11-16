@@ -8,11 +8,19 @@ import { cleJourneeDe, lundiDe } from './temps'
  * dans Téléchargements, d'où l'utilisateur a lancé son premier installateur.
  */
 export function emplacementsInstallateur(chemin: string, telechargements: string): string[] {
-  // Sans node:path : ce fichier sert aussi à la fenêtre.
-  const nom = chemin.split(/[\\/]/).pop()!
-  const copie = `${telechargements.replace(/[\\/]+$/, '')}\\${nom}`
+  const copie = copieTelechargements(chemin.split(/[\\/]/).pop()!, telechargements)
   const dossier = (c: string) => c.replace(/\//g, '\\').replace(/\\[^\\]*$/, '').toLowerCase()
   return dossier(copie) === dossier(chemin) ? [chemin] : [chemin, copie]
+}
+
+/**
+ * Copie de l'installateur gardée dans Téléchargements. Elle est réutilisée au lieu d'un nouveau téléchargement :
+ * certains PC d'entreprise refusent un programme tant qu'il est trop récent sur le poste, et un nouveau fichier
+ * ferait repartir ce délai de zéro.
+ */
+export function copieTelechargements(nom: string, telechargements: string): string {
+  // Sans node:path : ce fichier sert aussi à la fenêtre.
+  return `${telechargements.replace(/[\\/]+$/, '')}\\${nom}`
 }
 
 /** Lancement refusé par Windows (règle de l'entreprise, antivirus) : on peut réessayer ailleurs. */

@@ -4,13 +4,13 @@
  */
 import { spawn } from 'node:child_process'
 import { createHash } from 'node:crypto'
-import { copyFileSync, createWriteStream, mkdirSync, rmSync } from 'node:fs'
+import { copyFileSync, createReadStream, createWriteStream, mkdirSync, rmSync, statSync } from 'node:fs'
 import { basename, join } from 'node:path'
 import { Readable } from 'node:stream'
 import { pipeline } from 'node:stream/promises'
 import { app, net, shell } from 'electron'
 import {
-  URL_DERNIERE_VERSION, emplacementsInstallateur, lancementRefuse, lireVersionPubliee, type Installateur, type VersionPubliee,
+  URL_DERNIERE_VERSION, copieTelechargements, emplacementsInstallateur, lancementRefuse, lireVersionPubliee, type Installateur, type VersionPubliee,
 } from '../lib/maj'
 
 /** Dernière version publiée ; null si aucune version n'est encore publiée. */
@@ -30,8 +30,16 @@ export async function chercherDerniereVersion(): Promise<VersionPubliee | null> 
   return lireVersionPubliee(await reponse.json())
 }
 
-/** Télécharge l'installateur dans le dossier temporaire, en vérifiant sa taille et son empreinte. */
+/**
+ * Télécharge l'installateur dans le dossier temporaire, en vérifiant sa taille et son empreinte ; une copie intacte
+ * déjà gardée dans Téléchargements (essai précédent refusé par Windows) est réutilisée telle quelle.
+ */
 export async function telecharger(installateur: Installateur, surProgression: (pourcentage: number) => void): Promise<string> {
+  const deja = copieTelechargements(installateur.nom, app.getPath('downloads'))
+  if (await estIntact(deja, installateur)) {
+    surProgression(100)
+    return deja
+  }
   const dossier = join(app.getPath('temp'), 'Pointage-mise-a-jour')
   rmSync(dossier, { recursive: true, force: true })
   mkdirSync(dossier, { recursive: true })
@@ -62,6 +70,19 @@ export async function telecharger(installateur: Installateur, surProgression: (p
   return chemin
 }
 
+/** Fichier présent, de la taille publiée et (si publiée) de la bonne empreinte. */
+async function estIntact(chemin: string, installateur: Installateur): Promise<boolean> {
+  try {
+    if (statSync(chemin).size !== installateur.taille) return false
+    if (!installateur.sha256) return true
+    const empreinte = createHash('sha256')
+    await pipeline(createReadStream(chemin), empreinte)
+    return empreinte.digest('hex') === installateur.sha256
+  } catch {
+    return false
+  }
+}
+
 /**
  * Lance l'installateur en silence (`/S`) comme une mise à jour (`--updated`) ; il remplace l'application, garde les
  * données (dans %APPDATA%) et relance Pointage (`--force-run`, qui reçoit alors `--updated`). L'application se ferme
@@ -73,7 +94,7 @@ export async function installer(chemin: string): Promise<void> {
   try {
     await lancer(essai)
   } catch (e) {
-    // Refusé là (AppData interdit aux programmes) : nouvel essai depuis Téléchargements.
+    // Refusé là (AppData interdit aux programmes) : nouvel essai depuis Téléchargements, où la copie est gardée.
     if (!lancementRefuse(e) || autres.length === 0) throw expliquer(e, essai)
     essai = autres[0]!
     copyFileSync(chemin, essai)
@@ -106,5 +127,5 @@ function lancer(chemin: string): Promise<void> {
 function expliquer(erreur: unknown, chemin: string): Error {
   if (!lancementRefuse(erreur)) return erreur instanceof Error ? erreur : new Error(String(erreur))
   shell.showItemInFolder(chemin)
-  return new Error(`Windows refuse de lancer l’installateur (règle de l’entreprise ou antivirus). ${basename(chemin)} est ouvert dans l’Explorateur : double-cliquez dessus pour installer la mise à jour.`)
+  return new Error(`Windows refuse pour l’instant de lancer l’installateur (règle de l’entreprise ou antivirus, qui bloque souvent un programme tout juste téléchargé). ${basename(chemin)} est gardé dans Téléchargements et ouvert dans l’Explorateur : réessayez « Installer » plus tard (il ne sera pas retéléchargé) ou double-cliquez dessus.`)
 }
