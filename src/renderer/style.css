@@ -279,7 +279,8 @@ progress.fini::-webkit-progress-value { background: linear-gradient(90deg, color
 .tuile .valeur { font-size: 26px; font-weight: 650; font-variant-numeric: tabular-nums; }
 
 /* --- Journal --- */
-.navigation { display: flex; align-items: center; gap: 4px; }
+.navigation { display: flex; align-items: center; gap: 4px; flex-wrap: wrap; }
+.navigation .bouton { margin-left: 4px; }
 .navigation h2 { min-width: 150px; text-align: center; text-transform: capitalize; }
 .defilement { overflow-x: auto; margin: 0 -8px; padding: 0 8px; }
 table.journal { width: 100%; border-collapse: separate; border-spacing: 0; font-variant-numeric: tabular-nums; }

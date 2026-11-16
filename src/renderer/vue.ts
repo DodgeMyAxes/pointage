@@ -292,7 +292,8 @@ export function vueMois(c: Calculs, ctx: Contexte): string {
         <button type="button" class="bouton-icone" data-action="mois-precedent" title="Mois précédent" aria-label="Mois précédent">‹</button>
         <h2>${nomMois(ctx.mois)}</h2>
         <button type="button" class="bouton-icone" data-action="mois-suivant" title="Mois suivant" aria-label="Mois suivant">›</button>
-        <button type="button" class="bouton-lien" data-action="mois-courant">Ce mois-ci</button>
+        <button type="button" class="bouton" data-action="mois-courant">Ce mois-ci</button>
+        <button type="button" class="bouton" data-action="aller-aujourdhui" title="Aller à la ligne du jour">Aujourd’hui</button>
       </div>
       <span class="discret">${formatDuree(b.fait)} faites sur ${formatDuree(b.objectif)} · écart <span class="${classeEcart(b.ecart)}">${formatDuree(b.ecart, true)}</span></span>
     </div>

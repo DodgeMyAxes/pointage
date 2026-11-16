@@ -281,6 +281,16 @@ document.addEventListener('click', (e) => {
       mois = cleJourneeDe(Date.now()).slice(0, 7)
       rendre()
       break
+    case 'aller-aujourdhui': {
+      mois = cleJourneeDe(Date.now()).slice(0, 7)
+      rendre()
+      const ligne = document.querySelector<HTMLElement>('tr.aujourdhui')
+      if (!ligne) break
+      const reduit = matchMedia('(prefers-reduced-motion: reduce)').matches
+      ligne.scrollIntoView({ block: 'center', behavior: reduit ? 'auto' : 'smooth' })
+      ligne.querySelector<HTMLElement>('.deplier')?.focus({ preventScroll: true })
+      break
+    }
     case 'details': {
       const cle = cleDe(cible)
       if (ouverts.has(cle)) ouverts.delete(cle)

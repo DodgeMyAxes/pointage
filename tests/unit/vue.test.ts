@@ -21,6 +21,13 @@ function monter(html: string): HTMLElement {
 }
 
 describe('vue du mois', () => {
+  it('propose les boutons « Ce mois-ci » et « Aujourd’hui »', () => {
+    const ctx = contexte(donnees(journeeType(LUNDI)))
+    const page = monter(vueMois(calculer(ctx), ctx))
+    expect(page.querySelector('[data-action="mois-courant"]')!.classList.contains('bouton')).toBe(true)
+    expect(page.querySelector('[data-action="aller-aujourdhui"]')!.textContent).toBe('Aujourd’hui')
+  })
+
   it('affiche chaque jour, numéroté, avec un sous-total par semaine', () => {
     const ctx = contexte(donnees(journeeType(LUNDI)))
     const page = monter(vueMois(calculer(ctx), ctx))
