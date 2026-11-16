@@ -1,30 +1,50 @@
 import { describe, expect, it, vi } from 'vitest'
-import { MARGE_RELECTURE, ajouterEvenement, synchroniser } from '../../src/lib/synchro'
+import { MARGE_RELECTURE, ajouterEvenement, debutPremiereLecture, synchroniser } from '../../src/lib/synchro'
+import type { Donnees } from '../../src/lib/donnees'
 import { fusionner } from '../../src/lib/evenements'
 import { a, donnees, ev } from '../aides'
 
 describe('synchroniser', () => {
-  it('lit tout le journal la première fois, puis seulement depuis la dernière lecture', async () => {
+  it('lit depuis le début du mois la première fois, puis seulement depuis la dernière lecture', async () => {
     const lire = vi.fn().mockResolvedValue([{ t: 10, nature: 'ouverture' }])
-    const premiere = await synchroniser(donnees(), lire, 1_000)
-    expect(lire).toHaveBeenLastCalledWith(undefined)
-    expect(premiere.derniereLecture).toBe(1_000)
+    const maintenant = a('2026-11-16', '09:00')
+    const vides = donnees()
+    const premiere = await synchroniser(() => vides, lire, maintenant)
+    expect(lire).toHaveBeenLastCalledWith(a('2026-11-01', '04:00'))
+    expect(premiere.derniereLecture).toBe(maintenant)
 
     lire.mockResolvedValue([{ t: 10, nature: 'ouverture' }, { t: 20, nature: 'veille' }])
-    const seconde = await synchroniser(premiere, lire, 5_000)
-    expect(lire).toHaveBeenLastCalledWith(1_000 - MARGE_RELECTURE)
+    const seconde = await synchroniser(() => premiere, lire, maintenant + 5_000)
+    expect(lire).toHaveBeenLastCalledWith(maintenant - MARGE_RELECTURE)
     expect(seconde.evenements).toEqual([{ t: 10, nature: 'ouverture' }, { t: 20, nature: 'veille' }])
+  })
+
+  it('part du mois du début du décompte, même s’il est plus ancien', () => {
+    expect(debutPremiereLecture('2026-10-26', a('2026-11-02', '09:00'))).toBe(a('2026-10-01', '04:00'))
+    expect(debutPremiereLecture('', a('2026-12-01', '03:00'))).toBe(a('2026-11-01', '04:00'))
   })
 
   it('garde les événements que le journal Windows a effacés depuis', async () => {
     const d = { ...donnees([{ t: 1, nature: 'ouverture' }]), derniereLecture: 100 }
-    const resultat = await synchroniser(d, async () => [{ t: 50, nature: 'veille' }], 200)
+    const resultat = await synchroniser(() => d, async () => [{ t: 50, nature: 'veille' }], 200)
     expect(resultat.evenements.map((e) => e.t)).toEqual([1, 50])
+  })
+
+  it('garde ce qui a été noté ou saisi pendant la lecture', async () => {
+    let actuelles: Donnees = { ...donnees(), derniereLecture: 100 }
+    const lire = async () => {
+      // Pendant la lecture : un verrouillage et une note.
+      actuelles = { ...ajouterEvenement(actuelles, 'verrouillage', 150), saisies: { '2026-11-16': { note: 'RDV' } } }
+      return [{ t: 120, nature: 'ouverture' as const }]
+    }
+    const resultat = await synchroniser(() => actuelles, lire, 200)
+    expect(resultat.evenements).toEqual([{ t: 120, nature: 'ouverture' }, { t: 150, nature: 'verrouillage' }])
+    expect(resultat.saisies).toEqual({ '2026-11-16': { note: 'RDV' } })
   })
 
   it('laisse les données intactes si la lecture échoue', async () => {
     const d = donnees()
-    await expect(synchroniser(d, async () => { throw new Error('refus') }, 1)).rejects.toThrow('refus')
+    await expect(synchroniser(() => d, async () => { throw new Error('refus') }, 1)).rejects.toThrow('refus')
     expect(d.derniereLecture).toBeUndefined()
   })
 })

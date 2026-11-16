@@ -193,7 +193,7 @@ function sauver(): void {
 function lireJournal(): Promise<void> {
   lecture ??= (async () => {
     try {
-      donnees = await synchroniser(donnees, lireJournalWindows, Date.now())
+      donnees = await synchroniser(() => donnees, lireJournalWindows, Date.now())
       erreurLecture = undefined
       sauver()
     } catch (e) {
