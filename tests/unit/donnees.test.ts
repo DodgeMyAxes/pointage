@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import {
-  REGLAGES_PAR_DEFAUT, activitesConnues, appliquerReglages, appliquerSaisie, donneesPremierLancement, donneesVides, normaliser,
+  REGLAGES_PAR_DEFAUT, activitesConnues, appliquerReglages, appliquerSaisie, autostartAActiver, donneesPremierLancement, donneesVides, normaliser,
   typeParDefaut,
 } from '../../src/lib/donnees'
 
@@ -29,6 +29,17 @@ describe('normaliser', () => {
     expect(d.reglages.notifier).toBe(false)
     expect(d.derniereLecture).toBe(123)
     expect(d.derniereRechercheMaj).toBe(456)
+  })
+})
+
+describe('lancement à l’ouverture de session', () => {
+  it('est activé d’office une seule fois, et seulement pour la version installée', () => {
+    const d = donneesVides()
+    expect(autostartAActiver(d, true)).toBe(true)
+    expect(autostartAActiver(d, false)).toBe(false)
+    const deja = normaliser({ autostartActive: true })
+    expect(deja.autostartActive).toBe(true)
+    expect(autostartAActiver(deja, true)).toBe(false)
   })
 })
 

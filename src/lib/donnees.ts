@@ -84,6 +84,8 @@ export interface Donnees {
   derniereLecture?: number
   /** Instant de la dernière recherche de mise à jour réussie (pour ne chercher qu'une fois par semaine). */
   derniereRechercheMaj?: number
+  /** Lancement à l'ouverture de session déjà activé d'office une fois : ensuite, seul le choix de l'utilisateur compte. */
+  autostartActive?: boolean
 }
 
 export const REGLAGES_PAR_DEFAUT: Readonly<Reglages> = Object.freeze({
@@ -186,7 +188,13 @@ export function normaliser(brut: unknown): Donnees {
   if (estObjet(brut.reglages)) d.reglages = normaliserReglages(brut.reglages)
   if (typeof brut.derniereLecture === 'number' && Number.isFinite(brut.derniereLecture)) d.derniereLecture = brut.derniereLecture
   if (typeof brut.derniereRechercheMaj === 'number' && Number.isFinite(brut.derniereRechercheMaj)) d.derniereRechercheMaj = brut.derniereRechercheMaj
+  if (brut.autostartActive === true) d.autostartActive = true
   return d
+}
+
+/** Version installée (ni portable ni développement) jamais encore inscrite d'office au démarrage de Windows. */
+export function autostartAActiver(donnees: Donnees, installee: boolean): boolean {
+  return installee && !donnees.autostartActive
 }
 
 /** Modification d'un jour : une chaîne fixe la valeur, null revient à la valeur détectée (ou par défaut). */

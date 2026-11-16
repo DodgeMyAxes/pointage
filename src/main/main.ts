@@ -12,7 +12,7 @@ import type { Etat, FichierImport, FormatExport, Reponse } from '../lib/api'
 import { calculerJour, departConseille, historique, solde, transitions } from '../lib/calcul'
 import { exporterCsv, exporterTxt } from '../lib/exports'
 import { analyserImport, appliquerImport } from '../lib/import'
-import { appliquerReglages, appliquerSaisie, donneesPremierLancement, normaliser, type Donnees, type ModifSaisie, type Reglages } from '../lib/donnees'
+import { appliquerReglages, appliquerSaisie, autostartAActiver, donneesPremierLancement, normaliser, type Donnees, type ModifSaisie, type Reglages } from '../lib/donnees'
 import type { Nature } from '../lib/evenements'
 import {
   CLE_INSTALLATION, DELAI_NOUVEL_ESSAI_MAJ, ancienneInstallationAEffacer, comparerVersions, dossierInstallation, dossierPortable, jugerEmplacement,
@@ -107,10 +107,14 @@ function demarrer(): void {
     const chargement = charger(cheminDonnees)
     donnees = chargement.nouveau ? donneesPremierLancement(Date.now()) : chargement.donnees
     appliquerTheme()
-    // Version portable : pas d'inscription au démarrage de Windows d'office (bascule dans les Réglages).
-    if (chargement.nouveau && app.isPackaged && !portable) definirAutostart(true)
     verifierRaccourci()
     recalerAutostart()
+    // Coché d'office une seule fois, y compris pour une installation existante ; version portable : jamais d'office.
+    if (autostartAActiver(donnees, app.isPackaged && !portable)) {
+      definirAutostart(true)
+      donnees.autostartActive = true
+      sauver()
+    }
     effacerAncienneInstallation()
     enregistrerIpc()
     creerTray()
