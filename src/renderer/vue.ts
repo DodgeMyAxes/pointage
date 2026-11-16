@@ -1,7 +1,7 @@
 /** Rendu HTML de la fenêtre. Fonctions pures : l'état entre, du HTML sort (les événements sont dans app.ts). */
 import type { Etat } from '../lib/api'
 import {
-  avancement, bilan, calculerJour, calculerPeriode, departConseille, historique, solde, tempsParActivite, transitions,
+  avancement, bilan, calculerJour, calculerPeriode, departConseille, ecartEnCours, historique, solde, tempsParActivite, transitions,
   type Avancement, type Conseil, type Jour, type TempsActivite,
 } from '../lib/calcul'
 import {
@@ -28,7 +28,10 @@ export interface Calculs {
   maintenant: number
   aujourdhui: Jour
   conseil: Conseil | null
+  /** Solde des journées terminées (sert au départ conseillé). */
   solde: number
+  /** Solde affiché : journée en cours comprise, en temps réel. */
+  soldeDirect: number
   semaine: Avancement
   joursMois: Jour[]
   bilanMois: Avancement
@@ -53,6 +56,7 @@ export function calculer(ctx: Contexte): Calculs {
     aujourdhui,
     conseil: departConseille(aujourdhui, donnees.reglages, soldeTotal, ctx.maintenant),
     solde: soldeTotal,
+    soldeDirect: soldeTotal + ecartEnCours(aujourdhui, donnees.reglages.dateDebut),
     semaine: avancement(calculerPeriode(donnees, lundi, ajouterJours(lundi, 6), ctx.maintenant, trans), donnees.reglages.dateDebut),
     joursMois,
     bilanMois: avancement(joursMois, donnees.reglages.dateDebut),
@@ -178,12 +182,13 @@ function tuile(titre: string, valeur: number, ...details: string[]): string {
   </div>`
 }
 
-/** « 16h13 faites sur 29h28 » puis l'explication de l'écart affiché. */
+/** « 16h13 faites sur 29h28 » puis l'explication de l'écart affiché (en temps réel). */
 function detailsAvancement(a: Avancement): string[] {
-  return [
-    `${formatDuree(a.fait)} faites sur ${formatDuree(a.objectif)}`,
-    a.jours ? `écart sur ${a.jours} jour${a.jours > 1 ? 's' : ''} terminé${a.jours > 1 ? 's' : ''}` : 'aucun jour terminé',
-  ]
+  const termines = `${a.jours} jour${a.jours > 1 ? 's' : ''} terminé${a.jours > 1 ? 's' : ''}`
+  let ecart: string
+  if (a.enCours) ecart = a.jours ? `écart sur ${termines} + aujourd’hui en cours` : 'écart d’aujourd’hui, en cours'
+  else ecart = a.jours ? `écart sur ${termines}` : 'aucun jour terminé'
+  return [`${formatDuree(a.fait)} faites sur ${formatDuree(a.objectif)}`, ecart]
 }
 
 export function vueSynthese(c: Calculs, ctx: Contexte): string {
@@ -191,9 +196,9 @@ export function vueSynthese(c: Calculs, ctx: Contexte): string {
   const depuis = c.premier ? `depuis le ${nomJourLong(c.premier)}` : 'aucun jour enregistré'
   const initial = reglages.soldeInitial ? `, report de ${formatDuree(reglages.soldeInitial, true)} compris` : ''
   return `<section class="synthese" aria-label="Soldes">
-    ${tuile('Solde', c.solde, `${depuis}${initial}`)}
-    ${tuile('Cette semaine', c.semaine.ecart, ...detailsAvancement(c.semaine))}
-    ${tuile(`Mois de ${nomMois(ctx.mois).split(' ')[0]}`, c.bilanMois.ecart, ...detailsAvancement(c.bilanMois))}
+    ${tuile('Solde', c.soldeDirect, `${depuis}${initial}`)}
+    ${tuile('Cette semaine', c.semaine.ecartDirect, ...detailsAvancement(c.semaine))}
+    ${tuile(`Mois de ${nomMois(ctx.mois).split(' ')[0]}`, c.bilanMois.ecartDirect, ...detailsAvancement(c.bilanMois))}
   </section>`
 }
 
@@ -264,12 +269,14 @@ function ligneDetails(j: Jour, ctx: Contexte): string {
   return `<tr class="details" data-cle="${j.cle}"><td colspan="11">${contenu}</td></tr>`
 }
 
-function ligneSemaine(jours: readonly Jour[]): string {
-  const b = bilan(jours)
+/** Sous-total d'une semaine : jours terminés plus la journée en cours, en temps réel. */
+function ligneSemaine(jours: readonly Jour[], dateDebut: string): string {
+  const b = avancement(jours, dateDebut)
+  const affiche = b.jours > 0 || b.enCours
   return `<tr class="semaine">
     <td colspan="6">Total semaine ${numeroSemaine(jours[0].cle)}</td>
-    <td class="duree">${b.jours ? formatDuree(b.travaille) : ''}</td>
-    <td class="ecart">${b.jours ? `<span class="${classeEcart(b.ecart)}">${formatDuree(b.ecart, true)}</span>` : ''}</td>
+    <td class="duree">${affiche ? formatDuree(b.fait) : ''}</td>
+    <td class="ecart">${affiche ? `<span class="${classeEcart(b.ecartDirect)}">${formatDuree(b.ecartDirect, true)}</span>` : ''}</td>
     <td colspan="3"></td>
   </tr>`
 }
@@ -281,7 +288,7 @@ export function vueMois(c: Calculs, ctx: Contexte): string {
     lignes.push(ligneJour(j, ctx, i + 1))
     semaine.push(j)
     if (jourSemaine(j.cle) === 7 || i === c.joursMois.length - 1) {
-      lignes.push(ligneSemaine(semaine))
+      lignes.push(ligneSemaine(semaine, ctx.etat.donnees.reglages.dateDebut))
       semaine = []
     }
   })
@@ -295,7 +302,7 @@ export function vueMois(c: Calculs, ctx: Contexte): string {
         <button type="button" class="bouton" data-action="mois-courant">Ce mois-ci</button>
         <button type="button" class="bouton" data-action="aller-aujourdhui" title="Aller à la ligne du jour">Aujourd’hui</button>
       </div>
-      <span class="discret">${formatDuree(b.fait)} faites sur ${formatDuree(b.objectif)} · écart <span class="${classeEcart(b.ecart)}">${formatDuree(b.ecart, true)}</span></span>
+      <span class="discret">${formatDuree(b.fait)} faites sur ${formatDuree(b.objectif)} · écart <span class="${classeEcart(b.ecartDirect)}">${formatDuree(b.ecartDirect, true)}</span></span>
     </div>
     <div class="defilement">
       <table class="journal">

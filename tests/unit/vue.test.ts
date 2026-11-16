@@ -2,6 +2,7 @@
 import { describe, expect, it } from 'vitest'
 import type { Etat } from '../../src/lib/api'
 import { bandeauMaj, calculer, echapper, messageTexte, texteSoldeZero, vueApercuImport, vueAujourdhui, vueMaj, vueMois, vueReglages, vueSynthese, type Contexte } from '../../src/renderer/vue'
+import { formatDuree } from '../../src/lib/temps'
 import { a, donnees, ev, journeeType } from '../aides'
 
 const LUNDI = '2026-11-09'
@@ -82,7 +83,8 @@ describe('carte du jour et synthèse', () => {
     expect(page.querySelector('.horaire.fort .valeur')!.textContent).toBe('2h00')
     expect(page.querySelector('.horaire.conseil .valeur')!.textContent).toBe('16:22')
     expect(page.querySelector('.horaire.conseil .sous')!.textContent).toBe('solde à zéro : 16:24')
-    expect(page.querySelector('.tuile .valeur')!.textContent).toBe('-0h02')
+    // Solde en temps réel : -0h02 lundi, puis 2h00 faites sur 7h22 mardi.
+    expect(page.querySelector('.tuile .valeur')!.textContent).toBe(formatDuree(-2 + 120 - 442, true))
   })
 
   it('annonce l’avancement du jour au-dessus de la barre, sur toute la largeur', () => {
@@ -107,11 +109,13 @@ describe('carte du jour et synthèse', () => {
     const page = monter(vueSynthese(calculer(ctx), ctx) + vueMois(calculer(ctx), ctx))
     const [, semaine, mois] = [...page.querySelectorAll('.tuile')]
     expect([...semaine.querySelectorAll('.sous')].map((s) => s.textContent)).toEqual([
-      '9h20 faites sur 29h28', 'écart sur 1 jour terminé',
+      '9h20 faites sur 29h28', 'écart sur 1 jour terminé + aujourd’hui en cours',
     ])
+    // En temps réel : -0h02 lundi, 2h00 faites sur 7h22 mardi.
+    expect(semaine.querySelector('.valeur')!.textContent).toBe(formatDuree(-2 + 120 - 442, true))
     // Novembre 2026 : 20 jours ouvrés hors 11 novembre (le 1er tombe un dimanche).
     expect(mois.querySelector('.sous')!.textContent).toBe(`9h20 faites sur ${Math.floor((20 * 442) / 60)}h${String((20 * 442) % 60).padStart(2, '0')}`)
-    expect(page.querySelector('.mois .carte-tete > .discret')!.textContent).toBe('9h20 faites sur 147h20 · écart -0h02')
+    expect(page.querySelector('.mois .carte-tete > .discret')!.textContent).toBe(`9h20 faites sur 147h20 · écart ${formatDuree(-2 + 120 - 442, true)}`)
   })
 })
 

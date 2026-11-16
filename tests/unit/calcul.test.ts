@@ -208,7 +208,10 @@ describe('bilans et solde', () => {
     const d = donnees([...journeeType(LUNDI), ev(MARDI, '08:00', 'ouverture')])
     const semaine = calculerPeriode(d, LUNDI, '2026-11-15', a(MARDI, '10:00'))
     // Lundi terminé (7h20), mardi en cours (2h00) ; mercredi 11 férié : 4 jours de 7h22.
-    expect(avancement(semaine, '')).toEqual({ travaille: 440, attendu: 442, ecart: -2, jours: 1, fait: 560, objectif: 4 * 442 })
+    // Écart en temps réel : -2 (lundi) + 120 - 442 (mardi en cours).
+    expect(avancement(semaine, '')).toEqual({
+      travaille: 440, attendu: 442, ecart: -2, jours: 1, fait: 560, objectif: 4 * 442, ecartDirect: -2 + 120 - 442, enCours: true,
+    })
   })
 
   it('ignore dans l’avancement les jours d’avant le début du décompte', () => {

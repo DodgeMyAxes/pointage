@@ -209,18 +209,34 @@ export interface Avancement extends Bilan {
   fait: number
   /** Temps attendu sur toute la période (jours à venir compris, fériés et congés déduits). */
   objectif: number
+  /** Écart des jours terminés plus celui, provisoire, de la journée en cours : suit le temps réel. */
+  ecartDirect: number
+  /** La journée en cours fait partie de la période. */
+  enCours: boolean
+}
+
+/** Écart provisoire de la journée en cours (0 pour une autre journée ou avant le début du décompte). */
+export function ecartEnCours(j: Jour, dateDebut: string): number {
+  if (j.statut !== 'en-cours' || (dateDebut && j.cle < dateDebut)) return 0
+  return j.ecart ?? 0
 }
 
 /**
- * Avancement d'une période (semaine, mois) : temps fait face à l'objectif de toute la période, et écart des
- * seuls jours terminés (celui qui entre dans le solde). Les jours d'avant le début du décompte sont ignorés.
+ * Avancement d'une période (semaine, mois) : temps fait face à l'objectif de toute la période, écart des seuls
+ * jours terminés (celui qui entre dans le solde) et écart en temps réel. Les jours d'avant le début du décompte
+ * sont ignorés.
  */
 export function avancement(jours: readonly Jour[], dateDebut: string): Avancement {
-  const res: Avancement = { ...bilan(jours), fait: 0, objectif: 0 }
+  const res: Avancement = { ...bilan(jours), fait: 0, objectif: 0, ecartDirect: 0, enCours: false }
+  res.ecartDirect = res.ecart
   for (const j of jours) {
     if (dateDebut && j.cle < dateDebut) continue
     res.objectif += j.attendu
     if (j.compte || j.statut === 'en-cours') res.fait += j.travaille ?? 0
+    if (j.statut === 'en-cours') {
+      res.enCours = true
+      res.ecartDirect += ecartEnCours(j, dateDebut)
+    }
   }
   return res
 }
